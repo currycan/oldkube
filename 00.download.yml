@@ -1,0 +1,76 @@
+# download binary files and offline images
+- hosts: "{{ groups['masters'][0] }}"
+  become: true
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+  tasks:
+    - name: 获取最新版本信息并配置，默认为 false
+      shell: "/bin/bash {{ inventory_dir }}/get_version.sh"
+      when: check_version | default(false)
+
+    - name: 导入变量
+      include_vars:
+        file: ./roles/download/package/defaults/main.yml
+
+    - name: 创建下载文件存放目录
+      file: path="{{ cache_dir }}" state=directory
+
+    - block:
+      - name: 判断二进制文件是否存在
+        stat: path="{{ cache_dir + item.file + '-' + base[''+ item.name].version }}"
+        with_items:
+          # cfssl
+          - "{{ package.cfssl }}"
+          - "{{ package.cfssljson }}"
+            # kubernetes
+          - "{{ package.kubectl }}"
+          - "{{ package.apiserver }}"
+          - "{{ package.scheduler }}"
+          - "{{ package.controller_manager }}"
+          - "{{ package.kubelet }}"
+          - "{{ package.kubeproxy }}"
+        register: check_files
+
+      - name: "下载二进制文件"
+        when: not item.stat.exists
+        get_url:
+          url: "{{ item.item.url }}/{{ item.item.file }}"
+          dest: "{{ cache_dir + item.item.file + '-' + base[''+ item.item.name].version }}"
+          validate_certs: False
+        with_items: "{{ check_files['results'] }}"
+        environment:
+          http_proxy: "{{ proxy_env.http_proxy }}"
+          https_proxy: "{{ proxy_env.https_proxy }}"
+
+    - block:
+      - name: 判断安装包文件是否存在
+        stat: path="{{ cache_dir + item.file }}"
+        register: check_files
+        with_items:
+          # kubectl krew
+          - "{{ package.kubekrew }}"
+          # etcd
+          - "{{ package.etcd }}"
+          # container runtime
+          - "{{ package.docker }}"
+          - "{{ package.containerd }}"
+          - "{{ package.crictl }}"
+          # - "{{ package.nvidia_docker }}"
+          # - "{{ package.nvidia_container_runtime }}"
+          # - "{{ package.libnvidia_container }}"
+            # kubernetes
+          - "{{ package.cni }}"
+          - "{{ package.flannel }}"
+          - "{{ package.helm }}"
+
+      - name: "下载安装包文件"
+        when: not item.stat.exists
+        get_url:
+          url: "{{ item.item.url }}/{{ item.item.file }}"
+          dest: "{{ cache_dir + item.item.file }}"
+          validate_certs: False
+        with_items: "{{ check_files['results'] }}"
+        environment:
+          http_proxy: "{{ proxy_env.http_proxy }}"
+          https_proxy: "{{ proxy_env.https_proxy }}"

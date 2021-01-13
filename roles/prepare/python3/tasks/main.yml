@@ -1,0 +1,57 @@
+- block:
+  - name: 判断 python3 是否安装
+    shell: "command -v python3 >/dev/null 2>&1"
+    register: python3_result
+    ignore_errors: true
+
+  - name: 判断 pip3 是否安装
+    shell: "command -v pip3 >/dev/null 2>&1"
+    register: pip3_result
+    ignore_errors: true
+
+  - name: 创建下载文件临时目录
+    file:
+      path: "{{ python3_tmpdir }}"
+      state: directory
+
+  - block:
+    - block:
+      - name: 传统方式安装 python
+        include_tasks: "traditional.yml"
+
+      - name: 获取 python3 可执行文件目录
+        shell: "which {{ python3_command }}"
+        register: python3_which
+
+      - name: 创建 python3 软链
+        file:
+          src: "{{ python3_which.stdout }}"
+          dest: "{{ python3_which.stdout|dirname }}/python3"
+          state: link
+      when: python3_pyenv == 'None'
+
+    - name: pyenv 方式安装 python
+      include_tasks: pyenv.yml
+      when: python3_pyenv == python3_version
+    when: python3_result is failed or pip3_result is failed
+
+  # - name: pip 升级安装 pip pipenv virtualenv
+  #   shell: >
+  #     pip install --upgrade pip;
+  #     pip install --upgrade pipenv;
+  #     pip install --upgrade virtualenv
+
+  - name: pip3 升级安装 pip pipenv virtualenv 等模块
+    pip:
+      name: "{{ item }}"
+      state: present
+    with_items:
+      - pip
+      - pipenv
+      - virtualenv
+      # - pyhelm
+      # - openshift
+      # - k8s
+
+  environment:
+    PATH: "{{ ansible_env.PATH }}:{{ ansible_user_dir }}/.pyenv/bin:{{ ansible_user_dir }}/.pyenv/shims"

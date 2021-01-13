@@ -1,0 +1,108 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nfs-client-sa
+  namespace: kube-system
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: nfs-client-cr
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "update"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "update", "patch"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: nfs-client-crb
+subjects:
+  - kind: ServiceAccount
+    name: nfs-client-sa
+    # replace with namespace where provisioner is deployed
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: nfs-client-cr
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: nfs-client-role
+  namespace: kube-system
+rules:
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: nfs-client-rb
+  namespace: kube-system
+subjects:
+  - kind: ServiceAccount
+    name: nfs-client-sa
+    # replace with namespace where provisioner is deployed
+    namespace:  kube-system
+roleRef:
+  kind: Role
+  name: nfs-client-role
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: nfs-client
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: {{ storage.nfs.provisioner_name }}
+  replicas: 1
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: {{ storage.nfs.provisioner_name }}
+    spec:
+      serviceAccountName: nfs-client-sa
+      containers:
+        - name: nfs-client-provisioner
+          image: {{ storage.nfs.provisioner_image }}
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: nfs-client-root
+              mountPath: /persistentvolumes
+          env:
+            - name: PROVISIONER_NAME
+              # 此处供应者名字供storageclass调用
+              value: {{ storage.nfs.provisioner_name }}
+            - name: NFS_SERVER
+              value: {{ storage.nfs.server }}
+            - name: NFS_PATH
+              value: {{ storage.nfs.server_path }}
+      volumes:
+        - name: nfs-client-root
+          nfs:
+            server: {{ storage.nfs.server }}
+            path: {{ storage.nfs.server_path }}
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  # 要与PROVISIONER_NAME名字一样, 因此根据需要可多次创建provisioner
+  name: {{ storage.nfs.storage_class }}
+provisioner: {{ storage.nfs.provisioner_name }}

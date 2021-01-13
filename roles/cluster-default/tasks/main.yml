@@ -1,0 +1,7 @@
+---
+
+- name: 配置集群各变量
+  debug:
+    msg: "Check roles/k8s-default/defaults/main.yml"
+  tags:
+    - always

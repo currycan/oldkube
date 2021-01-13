@@ -1,0 +1,69 @@
+- hosts: "kube-cluster"
+  # vars:
+  #   ansible_python_interpreter: "/usr/bin/python3"
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+  tasks:
+  - name: 判断执行用户是否存在
+    action: shell /usr/bin/getent passwd {{ item }} | /usr/bin/wc -l | tr -d ''
+    register: user_exist
+    with_items:
+    - devops
+
+  - name: 添加非 root 用户命令执行目录环境变量
+    when: 'item.stdout == "1"'
+    lineinfile:
+      dest: "/home/{{ item.item }}/.bashrc"
+      state: present
+      regexp: '/usr/local/bin'
+      line: 'export PATH=/usr/local/bin:$PATH'
+    with_items:
+    - "{{ user_exist['results'] }}"
+
+  - name: 添加非 root 用户 docker 命令权限
+    when: 'item.stdout == "1"'
+    shell: >
+      usermod -aG docker {{ item.item }};
+    with_items:
+    - "{{ user_exist['results'] }}"
+
+  - name: 添加非 root 用户 kubeconfig 认证文件
+    when: 'item.stdout == "1"'
+    shell: >
+      rm -rf /home/{{ item.item }}/.kube;
+      mkdir -p /home/{{ item.item }}/.kube;
+      cp /root/.kube/config /home/{{ item.item }}/.kube/config;
+      chown -R $(id -u {{ item.item }}):$(id -g {{ item.item }}) /home/{{ item.item }}/.kube;
+    with_items:
+    - "{{ user_exist['results'] }}"
+
+  - name: 添加非 root 用户 kubectl 命令自动补全
+    when: 'item.stdout == "1"'
+    lineinfile:
+      dest: "/home/{{ item.item }}/.bashrc"
+      state: present
+      regexp: 'kubectl completion'
+      line: 'source <(kubectl completion bash)'
+    with_items:
+    - "{{ user_exist['results'] }}"
+
+  - name: 添加非 root 用户 helm 认证文件
+    when: 'item.stdout == "1"'
+    shell: >
+      rm -rf /home/{{ item.item }}/.helm;
+      cp -a /root/.helm /home/{{ item.item }}/;
+      chown -R $(id -u {{ item.item }}):$(id -g {{ item.item }}) /home/{{ item.item }}/.helm;
+    with_items:
+    - "{{ user_exist['results'] }}"
+
+  - name: 添加非 root 用户 helm 命令 tls 权限
+    when: 'item.stdout == "1"'
+    lineinfile:
+      dest: "/home/{{ item.item }}/.bashrc"
+      state: present
+      regexp: 'HELM_TLS_ENABLE=true'
+      line: 'export HELM_TLS_ENABLE=true'
+    with_items:
+    - "{{ user_exist['results'] }}"
+

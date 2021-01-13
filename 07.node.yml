@@ -1,0 +1,8 @@
+# to set up 'node' nodes
+- hosts:
+  - nodes
+  become: true
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: k8s-setup, node_role: 'node', tags: node-setup, when: "inventory_hostname not in groups['masters']" }

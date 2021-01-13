@@ -1,0 +1,7 @@
+# to set up flannel network cni
+- hosts: kube-cluster
+  become: true
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: flannel }

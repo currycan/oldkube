@@ -1,0 +1,33 @@
+---
+
+- name: 判断节点 {{ pkg.file }} 文件是否存在
+  stat: path="{{ cache_dir + pkg.file + '-' + base[''+ pkg.name].version }}"
+  register: check_files
+
+- name: 从 deploy 节点同步 {{ pkg.file }} 文件包
+  when: not check_files.stat.exists
+  copy: src="{{ cache_dir + pkg.file + '-' + base[''+ pkg.name].version }}" dest="{{ cache_dir + pkg.file + '-' + base[''+ pkg.name].version }}"
+  register: copy_files
+  ignore_errors: true
+
+- name: "下载 {{ pkg.file }} 文件"
+  when: copy_files is failed
+  get_url:
+    url: "{{ pkg.url }}/{{ pkg.file }}"
+    dest: "{{ cache_dir + pkg.file + '-' + base[''+ pkg.name].version }}"
+    validate_certs: False
+  environment:
+    http_proxy: "{{ proxy_env.http_proxy }}"
+    https_proxy: "{{ proxy_env.https_proxy }}"
+  register: pkg_download
+
+- name: "从 {{ cache_dir }} 目录复制 {{ pkg.file }} 二进制文件至运行目录"
+  when: copy_files is succeeded or "OK" in pkg_download.msg
+  copy:
+    src: "{{  cache_dir + pkg.file + '-' + base[''+ pkg.name].version }}"
+    dest: "{{ pkg.dir }}/{{ item }}"
+    owner: root
+    group: root
+    mode: 0755
+    remote_src: True
+  with_items: "{{ pkg['symlinks'] }}"

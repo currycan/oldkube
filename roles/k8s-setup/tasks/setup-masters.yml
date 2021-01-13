@@ -1,0 +1,46 @@
+---
+
+- name: 创建 etcd PKI 目录(证书存放目录)
+  file: path={{ etcd_pki_dir }} state=directory
+  register: create_etcd_pki_dir
+
+- name: 从 deploy 节点同步 etcd 证书文件
+  when: inventory_hostname != groups['masters'][0]
+  copy: src="{{ item }}" dest="{{ item }}"
+  with_items:
+    - "{{ etcd_ca }}"
+    - "{{ etcd_ca_key }}"
+    - "{{ apiserver_etcd_client }}"
+    - "{{ apiserver_etcd_client_key }}"
+
+- name: 创建 audit_policy_config 目录
+  file: path={{ audit_policy_dir }} state=directory
+
+- name: 创建 encryption_config 目录
+  file: path={{ encryption_config_dir }} state=directory
+
+- name: 生成 Kubernetes 配置文件
+  template: src="{{ item.src }}.j2" dest="{{ item.dest }}"
+  with_items:
+    - { src: "audit/policy.yml", dest: "{{ audit_policy }}" }
+    - { src: "encryption/config.yml", dest: "{{ encryption_config }}" }
+
+- name: 配置 master 节点管理组件的systemd文件
+  template: src={{ item }} dest={{ systemd_service_dir }}/{{ item.split('.')[:-1]|join('.') }}
+  with_items:
+    - kube-apiserver.service.j2
+    - kube-controller-manager.service.j2
+    - kube-scheduler.service.j2
+
+- name: 启动 kubernetes master节点 三大核心组件，并设置开机启动
+  systemd:
+    name={{ item }}
+    daemon_reload=yes
+    state=restarted
+    enabled=yes
+  with_items:
+    - kube-apiserver
+    - kube-controller-manager
+    - kube-scheduler
+  register: service_started
+

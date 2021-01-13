@@ -1,0 +1,55 @@
+---
+
+- name: 创建 flanneld 配置文件存放目录
+  file:
+    path: "{{ item }}"
+    recurse: yes
+    state: directory
+  with_items:
+    - "{{ flanneld_env_dir }}"
+    - "{{ flanneld_etc_dir }}"
+
+- name: 生成 flanneld 相关配置文件
+  template: src="{{ item.src }}.j2" dest="{{ item.dest }}"
+  with_items:
+    - { src: "10-flannel.conflist", dest: "{{ cni_etc_dir }}/10-flannel.conflist" }
+    - { src: "net-conf.json", dest: "{{ flanneld_etc_dir }}/net-conf.json" }
+
+- name: 生成 flanneld k8s rbac 文件
+  template: src="{{ item.src }}.j2" dest="{{ item.dest }}"
+  with_items:
+    - { src: "apiserver-to-flannel-rbac.yml", dest: "{{ manifest_dir }}/apiserver-to-flannel-rbac.yml" }
+  run_once: true
+  delegate_to: "{{ groups['masters'][0] }}"
+
+- name: 创建 apiserver to flannel RBAC
+  command: |
+    {{ bin_dir }}/kubectl apply -f {{ manifest_dir }}/apiserver-to-flannel-rbac.yml
+  register: create_result
+  until: create_result.rc == 0
+  retries: 1
+  delay: "{{ retry_stagger | random + 3 }}"
+  run_once: true
+  delegate_to: "{{ groups['masters'][0] }}"
+
+- name: 创建 flanneld systemd service 文件
+  template:
+    src: flanneld.service.j2
+    dest: "{{ systemd_service_dir }}/flanneld.service"
+    owner: root
+    group: root
+    mode: 0644
+
+- name: 启动服务，并设置开机启动
+  systemd:
+    name: flanneld
+    daemon_reload: yes
+    state: restarted
+    enabled: yes
+
+- name: 轮询等待 flanneld 启动
+  shell: "systemctl status flanneld.service | grep Active"
+  register: flanneld_status
+  until: '"running" in flanneld_status.stdout'
+  retries: 10
+  delay: "{{ retry_stagger | random + 30 }}"

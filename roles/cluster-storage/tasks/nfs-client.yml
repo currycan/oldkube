@@ -1,0 +1,13 @@
+- name: 准备 nfs-client 配置目录
+  file: name="{{ manifest_dir }}/storage/nfs" state=directory
+
+- name: 生成 nfs-client动态存储配置
+  template:
+    src: nfs/{{ item }}.j2
+    dest: "{{ manifest_dir }}/storage/nfs/{{ item }}"
+  with_items:
+    - test.yaml
+    - nfs-client-provisioner.yaml
+
+- name: 部署nfs-client动态存储
+  shell: "{{ bin_dir }}/kubectl apply -f {{ manifest_dir }}/storage/nfs"

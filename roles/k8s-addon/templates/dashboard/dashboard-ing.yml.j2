@@ -1,0 +1,29 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name:  kubernetes-dashboard
+  namespace: kube-system
+  annotations:
+{% if ingress_type == 'traefik' %}
+    kubernetes.io/ingress.class: "traefik"
+    traefik.ingress.kubernetes.io/redirect-entry-point: "https"
+{% elif ingress_type == 'nginx_ingress' %}
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    # This comment was deprecated in 0.18.0 and it was removed after the 0.20.0 release
+    # nginx.ingress.kubernetes.io/secure-backends: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+{% endif %}
+spec:
+  tls:
+  - hosts:
+    - {{ dashboard_domain_name }}
+    secretName: {{ dashboard_ingress_secret_name }}
+  rules:
+  - host: {{ dashboard_domain_name }}
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: kubernetes-dashboard
+          servicePort: 443

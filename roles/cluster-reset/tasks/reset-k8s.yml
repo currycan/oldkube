@@ -1,0 +1,250 @@
+---
+
+- name: 停止运行 所有 kubernetes systemd service
+  systemd: name={{ item }} state=stopped enabled=no
+  with_items:
+    - kubelet
+    - kube-proxy
+    - kube-scheduler
+    - kube-controller-manager
+    - kube-apiserver
+    - ipvsadm.service
+  ignore_errors: true
+  register: stop_k8s_service
+
+- name: 删除所有 kubernetes 组件目录和文件
+  file: path="{{ item }}" state=absent
+  with_items:
+    - "{{ etc_dir }}"
+    - "{{ cni_etc_dir }}"
+    - "{{ addon_dir }}"
+    - "{{ kubelet_plugins_dir }}"
+    - "{{ kubele_config_dir }}"
+    - "{{ kubeproxy_dir }}"
+    - "{{ kubeproxy_config_dir }}"
+    - "{{ audit_policy_dir }}"
+    - "{{ encryption_config_dir }}"
+    - "{{ audit_log_dir }}"
+    - "{{ ansible_env.HOME }}/.kube"
+    - "{{ ansible_env.HOME }}/.helm"
+    - "{{ ansible_env.HOME }}/.krew"
+    - "{{ bin_dir }}/kubectl"
+    - "{{ bin_dir }}/kube-apiserver"
+    - "{{ bin_dir }}/kube-controller-manager"
+    - "{{ bin_dir }}/kube-scheduler"
+    - "{{ bin_dir }}/kubelet"
+    - "{{ bin_dir }}/kube-proxy"
+    - "{{ bin_dir }}/cfssl"
+    - "{{ bin_dir }}/cfssljson"
+    - "/etc/sysconfig/ipvsadm"
+    - "/opt/kubectl-krew"
+    - "/opt/kubectx/"
+    - "{{ systemd_service_dir }}/kubelet.service.d/"
+    - "{{ systemd_service_dir }}/kubelet.service"
+    - "{{ systemd_service_dir }}/kube-proxy.service"
+    - "{{ systemd_service_dir }}/kube-scheduler.service"
+    - "{{ systemd_service_dir }}/kube-controller-manager.service"
+    - "{{ systemd_service_dir }}/kube-apiserver.service"
+    - "{{ etc_systemd_service_dir }}/kubelet.service.d/"
+    - "{{ etc_systemd_service_dir }}/kubelet.service"
+    - "{{ etc_systemd_service_dir }}/kube-proxy.service"
+    - "{{ etc_systemd_service_dir }}/kube-scheduler.service"
+    - "{{ etc_systemd_service_dir }}/kube-controller-manager.service"
+    - "{{ etc_systemd_service_dir }}/kube-apiserver.service"
+
+- name: 停止运行 docker systemd service
+  when: container_runtime == 'docker' or container_runtime == 'nvidia-docker'
+  systemd: name={{ item }} state=stopped enabled=no
+  with_items:
+    - docker.service
+    - docker.socket
+  ignore_errors: True
+  register: stop_docker_service
+
+- name: 停止运行 containerd systemd service
+  when: container_runtime == 'containerd'
+  systemd: name=containerd.service state=stopped enabled=no
+  ignore_errors: True
+  register: stop_containerd_service
+
+- name: 删除 container runtime 目录和二进制文件
+  when: stop_docker_service
+  file: path="{{ item }}" state=absent
+  with_items:
+    - "{{ docker_config_dir }}"
+    - "{{ docker_shim_dir }}"
+    - "{{ containerd_data_dir }}"
+    - "{{ containerd_config_dir }}"
+    - "{{ nvidia_runtime_config_dir }}"
+    - "{{ libnvidia_header_file }}"
+    - "{{ libnvidia_lib_dir }}"
+    - "{{ package.docker.dir }}"
+    - "{{ package.nvidia_docker.dir }}"
+    - "{{ package.libnvidia_container.dir }}"
+    - "{{ package.nvidia_container_runtime.dir }}"
+    - "{{ package.containerd.dir }}"
+    - "{{ bin_dir }}/docker"
+    - "{{ bin_dir }}/dockerd"
+    - "{{ bin_dir }}/docker-init"
+    - "{{ bin_dir }}/docker-proxy"
+    - "{{ bin_dir }}/docker-runc"
+    - "{{ bin_dir }}/ctr"
+    - "{{ bin_dir }}/critest"
+    - "{{ bin_dir }}/crictl"
+    - "{{ bin_dir }}/containerd"
+    - "{{ bin_dir }}/containerd-shim"
+    - "{{ bin_dir }}/containerd-shim-runc-v1"
+    - "{{ bin_dir }}/containerd-stress"
+    - "{{ bin_dir }}/nvidia-container-cli"
+    - "{{ bin_dir }}/nvidia-container-runtime"
+    - "{{ bin_dir }}/nvidia-container-runtime-hook"
+    - "{{ bin_dir }}/nvidia-docker"
+    - "{{ bin_dir }}/runc"
+    - "/etc/crictl.yaml"
+    - "{{ systemd_service_dir }}/docker.service"
+    - "{{ systemd_service_dir }}/docker.socket"
+    - "{{ systemd_service_dir }}/containerd.service"
+    - "{{ etc_systemd_service_dir }}/docker.service"
+    - "{{ etc_systemd_service_dir }}/docker.socket"
+    - "{{ etc_systemd_service_dir }}/containerd.service"
+
+- name: 查找 docker mounted volumes
+  when: stop_docker_service
+  shell: "df | grep -o '{{ docker_data_dir }}/.*'"
+  register: docker_mounts
+  ignore_errors: True
+
+- name: Unmounting docker volumes
+  when: docker_mounts
+  mount: name={{ item }} state=unmounted
+  with_items: "{{ docker_mounts.stdout_lines | list }}"
+
+- name: 查找 containerd mounted volumes
+  when: stop_containerd_service
+  shell: "df | grep -o '/run/containerd/.*'"
+  register: containerd_mounts
+  ignore_errors: True
+
+- name: Unmounting containerd volumes
+  when: containerd_mounts
+  mount: name={{ item }} state=unmounted
+  with_items: "{{ containerd_mounts.stdout_lines | list }}"
+
+- name: 查找 kubelet mounted volumes
+  when: stop_k8s_service
+  shell: "df | grep -o '/var/lib/kubelet.*'"
+  register: kubelet_mounts
+  ignore_errors: True
+
+- name: Unmounting kubelet volumes
+  when: kubelet_mounts
+  mount: name={{ item }} state=unmounted
+  with_items: "{{ kubelet_mounts.stdout_lines | list }}"
+  ignore_errors: True
+
+- name: 删除 IP-in-IP tunnel
+  when: stop_k8s_service
+  command: "modprobe -r ipip"
+  ignore_errors: True
+
+- name: 查找 Kubernetes 网络接口
+  when: stop_k8s_service
+  shell: "ip addr | grep {{ item }}"
+  with_items:
+    - "docker0"
+    - "flannel.1"
+    - "cni0"
+    - "tunl0"
+  register: find_eths
+  ignore_errors: True
+
+- name: 删除 Kubernetes 网络接口
+  when: stop_k8s_service and item.stdout != ''
+  shell: "ip link delete {{ item.item }}"
+  with_items: "{{ find_eths['results'] }}"
+  ignore_errors: True
+
+- name: 查找 blackhole 路由规则
+  when: stop_k8s_service
+  shell: "ip route | awk '/blackhole/ {print $2}'"
+  register: find_blackhole
+  ignore_errors: True
+
+- name: 删除 blackhole 路由规则
+  when: stop_k8s_service and find_blackhole.stdout != ''
+  shell: "ip route del {{ find_blackhole.stdout }}"
+  ignore_errors: True
+
+- name: 删除网络插件目录
+  file: name={{ item }} state=absent
+  with_items:
+  - "{{ cni_etc_config }}"
+  - "{{ flanneld_env_dir }}"
+  - "{{ flanneld_etc_dir }}"
+  - "/etc/calico/"
+  - "/var/run/calico/"
+  - "/var/lib/calico/"
+  - "/var/log/calico/"
+  - "/etc/cilium/"
+  - "/var/run/cilium/"
+  - "/sys/fs/bpf/tc/"
+  - "/var/lib/cni/"
+  - "/var/lib/kube-router/"
+  - "/opt/kube/kube-system/"
+  - "/var/run/openvswitch/"
+  - "/etc/origin/openvswitch/"
+  - "/etc/openvswitch/"
+  - "/var/log/openvswitch/"
+
+- name: cleanup iptables
+  shell: "iptables -F && iptables -X \
+&& iptables -F -t nat && iptables -X -t nat \
+&& iptables -F -t raw && iptables -X -t raw \
+&& iptables -F -t mangle && iptables -X -t mangle \
+&& ipvsadm --clear"
+
+- name: cleanup networks1
+  shell: "ip link del tunl0; \
+      ip link del flannel.1; \
+      ip link del cni0; \
+      ip link del mynet0; \
+      ip link del kube-bridge; \
+      ip link del dummy0; \
+      ip link del kube-ipvs0; \
+      ip link del cilium_net; \
+      ip link del cilium_vxlan; \
+      ip link del ovn0; \
+      ip link del ovs-system"
+  ignore_errors: true
+
+- name: cleanup networks2
+  shell: "ip link del docker0; \
+systemctl restart networking; \
+systemctl restart network"
+  ignore_errors: true
+
+- name: cleanup 'calico' routes
+  shell: "for rt in `ip route|grep bird|sed 's/blackhole//'|awk '{print $1}'`;do ip route del $rt;done;"
+  when: "container_network == 'calico'"
+  ignore_errors: true
+
+- name: clean 'ENV PATH'
+  lineinfile:
+    dest: "{{ ansible_env.HOME }}/.bashrc"
+    state: absent
+    regexp: '{{ item }}'
+  with_items:
+  - 'HELM_TLS_ENABLE'
+  - 'helm completion'
+  - 'krew'
+  - 'kubectl completion'
+  - 'crictl completion'
+
+- name: 删除 container 相关目录
+  file: path="{{ item }}" state=absent
+  with_items:
+    - "/run/containerd/"
+    - "/run/containerd"
+    - "{{ docker_data_dir }}"
+    - "{{ kubelet_dir}}"
+  ignore_errors: true

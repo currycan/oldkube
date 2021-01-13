@@ -1,0 +1,26 @@
+---
+
+- name: 查找 Kubernetes 证书签名请求文件(CSR files)
+  find:
+    paths: "{{ pki_dir }}"
+    patterns: "*.csr,*.json"
+  register: find_k8s_result
+
+- name: 删除 Kubernetes 证书签名请求文件(CSR files)
+  when: find_k8s_result
+  file: path={{ item.path }} state=absent
+  with_items: "{{ find_k8s_result.files }}"
+
+- block:
+  - name: 查找 etcd 证书签名请求文件(CSR files)
+    find:
+      paths: "{{ etcd_pki_dir }}"
+      patterns: "*.csr,*.json"
+    register: find_etcd_result
+
+  - name: 删除 etcd 证书签名请求文件(CSR files)
+    when: find_etcd_result
+    file: path={{ item.path }} state=absent
+    with_items: "{{ find_etcd_result.files }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+  run_once: true

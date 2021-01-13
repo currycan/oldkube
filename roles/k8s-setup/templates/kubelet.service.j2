@@ -1,0 +1,80 @@
+[Unit]
+Description=Kubernetes Kubelet
+Documentation=https://github.com/GoogleCloudPlatform/kubernetes
+After=docker.service
+Requires=docker.service
+
+
+[Service]
+# --bootstrap-kubeconfig={{ bootstrap_kubeconfig }} \
+WorkingDirectory={{ kubelet_dir }}
+{% if kube_reserved is defined %}
+ExecStartPre=/bin/mkdir -p /sys/fs/cgroup/cpuset/system.slice/kubelet.service
+ExecStartPre=/bin/mkdir -p /sys/fs/cgroup/hugetlb/system.slice/kubelet.service
+ExecStartPre=/bin/mkdir -p /sys/fs/cgroup/memory/system.slice/kubelet.service
+ExecStartPre=/bin/mkdir -p /sys/fs/cgroup/pids/system.slice/kubelet.service
+{% endif %}
+ExecStart={{ bin_dir }}/kubelet \
+{% if (kube_version.split('.')[0]|int + kube_version.split('.')[1]|int/100)|float < 1.15 %}
+  --allow-privileged=true \
+{% endif %}
+  --anonymous-auth=false \
+  --authentication-token-webhook \
+  --authorization-mode=Webhook \
+  --client-ca-file={{ ca }} \
+  --cluster-dns={{ cluster_dns_ip }} \
+  --cluster-domain={{ cluster_domain_name }} \
+  --cni-bin-dir={{ cni_bin_dir }} \
+  --cni-conf-dir={{ cni_etc_dir }} \
+{% if container_runtime == "containerd" %}
+  --container-runtime=remote \
+  --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
+{% endif %}
+{% if container_runtime != 'docker' and container_runtime != 'nvidia-docker' %}
+  --container-runtime=remote \
+  --container-runtime-endpoint=unix://{{ runtime_sockets['' + container_runtime] }} \
+{% endif %}
+  --port={{ kubelet_bind_port }} \
+{% if inventory_hostname == hostvars[inventory_hostname]['ansible_' + iface].ipv4.address %}
+  --hostname-override={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} \
+{% endif %}
+  --read-only-port={{ kubelet_bind_read_port }} \
+  --healthz-port={{ kubelet_bind_healthz_port }} \
+  --fail-swap-on=true \
+  --hairpin-mode hairpin-veth \
+  --max-pods={{ max_pods }} \
+  --image-gc-high-threshold=85 \
+  --image-gc-low-threshold=80 \
+  --network-plugin=cni \
+  --pod-infra-container-image={{ pod_infra_container_image }} \
+  --register-node=true \
+  --root-dir={{ kubelet_dir }} \
+  --tls-cert-file={{ kubelet }} \
+  --tls-private-key-file={{ kubelet_key }} \
+  --cgroups-per-qos=true \
+  --cgroup-driver=cgroupfs \
+  --image-pull-progress-deadline={{ image_pull_progress_deadline }} \
+  --enforce-node-allocatable=pods{% if kube_reserved is defined %},kube-reserved{% endif %}{% if system_reserved is defined %},system-reserved{% endif %} \
+{% if kube_reserved is defined %}
+  --kube-reserved={{ kube_reserved }} \
+  --kube-reserved-cgroup=/system.slice/kubelet.service \
+{% endif %}
+{% if system_reserved is defined %}
+  --system-reserved={{ system_reserved }} \
+  --system-reserved-cgroup=/system.slice \
+{% endif %}
+  --eviction-hard={{ eviction_hard }} \
+  --kubeconfig={{ kubelet_kubeconfig }} \
+  --volume-plugin-dir={{ kubelet_plugins_dir }} \
+  --alsologtostderr \
+  --log-dir={{ kubelet_audit_log }} \
+  --v={{ log_level | default(2)}}
+
+LimitNOFILE=65536
+Restart=on-failure
+RestartSec=3
+StartLimitInterval=0
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

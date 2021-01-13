@@ -1,0 +1,84 @@
+- name: pyenv 方式安装 python, 安装相应依赖
+  yum:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - git
+    - gcc
+    - zlib-devel
+    - openssl-devel
+    - openssl-static
+    - sqlite-devel
+    - bzip2-devel
+    - bzip2-libs
+    - readline-devel
+    - readline-static
+  when: python3_pyenv != 'None' and 'ansible_distribution in ["CentOS","RedHat","Amazon"]'
+
+- name: pyenv 方式安装 python, 安装相应依赖
+  apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - git
+    - gcc
+    - libreadline-dev
+    - zlib1g-dev
+    - libssl-dev
+    - libbz2-dev
+    - libsqlite3-dev
+  when: python3_pyenv != 'None' and ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 16
+
+- block:
+  - name: 删除 .pyenv 目录
+    file:
+      path: "{{ ansible_user_dir }}/.pyenv"
+      state: absent
+
+  - name: 下载 pyenv 安装包
+    get_url:
+      url: https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer
+      dest: "{{ python3_tmpdir }}"
+    environment:
+      http_proxy: "{{ proxy_env.http_proxy }}"
+      https_proxy: "{{ proxy_env.https_proxy }}"
+
+  - name: 安装 pyenv
+    shell: "bash pyenv-installer"
+    args:
+        chdir: "{{ python3_tmpdir }}"
+        creates: "{{ ansible_user_dir }}/.pyenv"
+
+  - name: 添加 pyenv 环境变量
+    blockinfile:
+      path: "{{ python3_bashrc }}"
+      create: true
+      block: |
+        export PATH="{{ ansible_user_dir }}/.pyenv/bin:$PATH"
+        eval "$(pyenv init -)"
+        eval "$(pyenv virtualenv-init -)"
+
+  - name: pyenv 国内镜像加速
+    shell: >
+      wget http://npm.taobao.org/mirrors/python/{{ python3_version }}/Python-{{ python3_version }}.tar.xz -P ~/.pyenv/cache/;
+      source "{{ python3_bashrc }}"
+
+  - name: 更新 pyenv 仓库
+    shell: pyenv update
+
+  - name: 使用 pyenv 安装 Python-{{ python3_version }}
+    shell: >
+      pyenv install -f {{ python3_pyenv }};
+      pyenv rehash;
+      pyenv global {{ python3_pyenv }};
+    args:
+      creates: "{{ ansible_user_dir }}/.pyenv/versions/{{ python3_pyenv }}"
+
+  - name: "pip 设置国内源"
+    shell: >
+      pip install --upgrade pip -i https://mirrors.ustc.edu.cn/pypi/web/simple  --trusted-host mirrors.ustc.edu.cn;
+      rm -f ~/.config/pip/pip.conf;
+      pip config set global.index-url https://mirrors.ustc.edu.cn/pypi/web/simple;
+      pip config set global.trusted-host mirrors.ustc.edu.cn
+  environment:
+    PATH: "{{ ansible_env.PATH }}:{{ ansible_user_dir }}/.pyenv/bin:{{ ansible_user_dir }}/.pyenv/shims:{{ ansible_user_dir }}/.pyenv/versions/{{ python3_pyenv }}/bin"

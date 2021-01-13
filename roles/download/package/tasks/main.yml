@@ -1,0 +1,38 @@
+---
+
+- name: 选择使用本地仓库下载资源
+  when: 'pkg is defined and repos_offline'
+  set_fact:
+    base: >
+      {{ base |
+         combine({ pkg.name: {
+             'url': repos_offline_url,
+             'version': base[pkg.name]['version']
+         }})
+      }}
+
+- name: 创建下载文件存放目录
+  when: pkg is defined
+  file: path="{{ cache_dir }}" state=directory
+
+- name: "创建 {{ pkg.name }} 安装目录"
+  when: pkg is defined
+  file: path="{{ pkg.dir }}" state=directory mode=755
+
+- name: 安装 {{ pkg.name }}
+  when: pkg is defined and "unarchive" in pkg
+  include_tasks: archive.yml
+
+- name: 安装 {{ pkg.name }}
+  when: pkg is defined and not "unarchive" in pkg
+  include_tasks: binary.yml
+
+- name: "创建 {{ pkg.name }} 软链到 {{ bin_dir }}"
+  when:
+    - pkg is defined
+  file:
+    src: "{{ pkg.dir }}/{{ item }}"
+    dest: "{{ bin_dir }}/{{ item.split('/')[-1] }}"
+    state: link
+  with_items:
+    - "{{ pkg['symlinks'] }}"

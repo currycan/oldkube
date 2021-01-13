@@ -1,0 +1,143 @@
+---
+
+# system paths
+bin_dir: /usr/local/bin
+sbin_dir: /usr/local/sbin
+cache_dir: /k8s_cache/
+ld_config_dir: /etc/ld.so.conf.d
+systemd_service_dir: /usr/lib/systemd/system
+etc_systemd_service_dir: /etc/systemd/system
+
+# kubernetes paths
+etc_dir: /etc/kubernetes
+manifest_dir: /etc/kubernetes/manifests
+addon_dir: /etc/kubernetes/addons
+kubelet_dir: /var/lib/kubelet
+kubelet_plugins_dir: "{{ kubelet_dir }}/volume/exec"
+kubele_config_dir: /etc/kubelet
+kubeproxy_dir: /var/lib/kube-proxy
+kubeproxy_config_dir: /etc/kube-proxy
+cni_bin_dir: /opt/cni/bin
+cni_etc_dir: /etc/cni/net.d
+audit_policy_dir: /etc/kubernetes/audit
+encryption_config_dir: /etc/kubernetes/encryption
+audit_log_dir: /var/log/kubernetes
+
+# config file
+# kube-config
+admin_kubeconfig: "{{ etc_dir }}/admin.conf"
+controller_manager_kubeconfig: "{{ etc_dir }}/controller-manager.conf"
+scheduler_kubeconfig: "{{ etc_dir }}/scheduler.conf"
+bootstrap_kubeconfig: "{{ etc_dir }}/kubelet-bootstrap.conf"
+kubelet_kubeconfig: "{{ etc_dir }}/kubelet.conf"
+kubeproxy_kubeconfig: "{{ etc_dir }}/kube-proxy.conf"
+
+# systemd service cofig
+audit_policy: "{{ audit_policy_dir }}/policy.yml"
+encryption_config: "{{ encryption_config_dir }}/config.yml"
+kubelet_config: "{{ kubele_config_dir }}/kubelet-config.yml"
+kubeproxy_config: "{{ kubeproxy_config_dir }}/kube-proxy-config.yml"
+
+# cni config
+cni_etc_config: /etc/cni/net.d/cni-default.conf
+
+# flannel
+flanneld_env_dir: "/run/flannel"
+flanneld_etc_dir: "/etc/kube-flannel"
+flanneld_env: "{{ flanneld_env_dir }}/subnet.env"
+flanneld_kubeconfig: "{{ etc_dir }}/flanneld.conf"
+
+# audit log
+apiserver_audit_log: "{{ audit_log_dir }}/apiserver_audit.log"
+controller_manager_audit_log: "{{audit_log_dir}}/controller_manager_audit.log"
+scheduler_audit_log: "{{audit_log_dir}}/scheduler_audit.log"
+kubelet_audit_log: "{{audit_log_dir}}/kubelet_audit.log"
+kubeproxy_audit_log: "{{audit_log_dir}}/kubeproxy_audit.log"
+
+# ha
+haproxy_config_dir: /etc/haproxy
+keepalived_config_dir: /etc/keepalived
+haproxy_config: "{{ haproxy_config_dir }}/haproxy.cfg"
+keepalived_config: "{{ keepalived_config_dir }}/keepalived.conf"
+
+# etcd paths
+etcd_data_dir: /var/lib/etcd
+etcd_wal_dir: /var/lib/etcd/wal
+etcd_config_dir: /etc/etcd
+etcd_config_file: /etc/etcd/config.yml
+
+# container runtime paths
+# docker
+docker_data_dir: /var/lib/docker
+docker_config_dir: /etc/docker
+docker_shim_dir: /var/lib/dockershim
+
+# containerd
+containerd_data_dir: /var/lib/containerd
+containerd_config_dir: /etc/containerd
+
+# nvidia_runtime
+nvidia_runtime_config_dir: /etc/nvidia-container-runtime
+libnvidia_header_file: /usr/local/include/nvc.h
+libnvidia_lib_dir: /usr/local/lib/libnvidia
+
+# cert paths
+pki_dir: /etc/kubernetes/pki
+etcd_pki_dir: "{{ pki_dir }}/etcd"
+
+# ca certificates
+ca_config: "{{ pki_dir }}/ca-config.json"
+ca: "{{ pki_dir }}/ca.pem"
+ca_key: "{{ pki_dir }}/ca-key.pem"
+
+# etcd certificates
+etcd_ca: "{{ etcd_pki_dir }}/etcd-ca.pem"
+etcd_ca_key: "{{ etcd_pki_dir }}/etcd-ca-key.pem"
+etcd_cert: "{{ etcd_pki_dir }}/etcd.pem"
+etcd_cert_key: "{{ etcd_pki_dir }}/etcd-key.pem"
+etcd_cert_peer: "{{ etcd_pki_dir }}/etcd-peer.pem"
+etcd_cert_peer_key: "{{ etcd_pki_dir }}/etcd-peer-key.pem"
+etcd_healthcheck_client: "{{ etcd_pki_dir }}/etcd-healthcheck-client.pem"
+etcd_healthcheck_client_key: "{{ etcd_pki_dir }}/etcd-healthcheck-client-key.pem"
+apiserver_etcd_client: "{{ etcd_pki_dir }}/apiserver-etcd-client.pem"
+apiserver_etcd_client_key: "{{ etcd_pki_dir }}/apiserver-etcd-client-key.pem"
+
+# flanneld
+flanneld: "{{ pki_dir }}/flanneld.pem"
+flanneld_key: "{{ pki_dir }}/flanneld-key.pem"
+
+# kubectl certificates
+admin: "{{ pki_dir }}/admin.pem"
+admin_key: "{{ pki_dir }}/admin-key.pem"
+
+# apiserver certificates
+apiserver: "{{ pki_dir }}/apiserver.pem"
+apiserver_key: "{{ pki_dir }}/apiserver-key.pem"
+kube_apiserver_kubelet: "{{ pki_dir }}/apiserver-kubelet-client.pem"
+kube_apiserver_kubelet_key: "{{ pki_dir }}/apiserver-kubelet-client-key.pem"
+
+# controller-manager certificates
+controller_manager: "{{ pki_dir }}/controller-manager.pem"
+controller_manager_key: "{{ pki_dir }}/controller-manager-key.pem"
+
+# scheduler certificates
+scheduler: "{{ pki_dir }}/scheduler.pem"
+scheduler_key: "{{ pki_dir }}/scheduler-key.pem"
+
+# kubelet certificates
+kubelet: "{{ pki_dir }}/kubelet.pem"
+kubelet_key: "{{ pki_dir }}/kubelet-key.pem"
+
+# kube-proxy certificates
+kubeproxy: "{{ pki_dir }}/kube-proxy.pem"
+kubeproxy_key: "{{ pki_dir }}/kube-proxy-key.pem"
+
+# front-proxy certificates
+front_ca: "{{ pki_dir }}/front-proxy-ca.pem"
+front_ca_key: "{{ pki_dir }}/front-proxy-ca-key.pem"
+front_client: "{{ pki_dir }}/front-proxy-client.pem"
+front_client_key: "{{ pki_dir }}/front-proxy-client-key.pem"
+
+# service account certificates
+sa_public_key: "{{ pki_dir }}/sa.pub"
+sa_private_key: "{{ pki_dir }}/sa.key"

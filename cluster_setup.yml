@@ -1,0 +1,126 @@
+# 时间校准, chrony 方式，可选！
+- hosts:
+    - kube-cluster
+    - etcds
+    - chrony
+  become: true
+  roles:
+    - { role: cluster-default }
+    - { role: prepare/chrony, when: "groups['chrony']|length > 0" }
+
+# 初始化
+- hosts:
+    - kube-cluster
+    - etcds
+  become: true
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: prepare/initialize }
+
+# 生成证书
+- hosts:
+    - kube-cluster
+  become: true
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: cert, tags: cert }
+
+# master节点上下文文件
+- hosts: masters
+  become: true
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: k8s-kubeconfig, node_role: 'master' }
+
+# node节点上下文文件
+- hosts: nodes
+  become: true
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: k8s-kubeconfig, node_role: 'node' }
+
+# container engine
+- hosts:
+    - kube-cluster
+  gather_facts: false
+  become: true
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: container-runtime, tags: container-runtime }
+
+# etcd数据库
+- hosts: etcds
+  become: true
+  roles:
+   - { role: cluster-default }
+   - { role: cluster-path }
+   - { role: etcd, tags: etcd }
+
+# master节点组件
+- hosts: masters
+  become: true
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: ha, when: "groups['masters']|length > 1" }
+    - { role: k8s-setup, node_role: 'master', tags: master-setup }
+
+# node节点组件
+- hosts: nodes
+  become: true
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: k8s-setup, node_role: 'node', tags: node-setup, when: "inventory_hostname not in groups['masters']" }
+
+# 网络插件
+- hosts: kube-cluster
+  become: true
+  gather_facts: false
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: k8s-network }
+    - { role: k8s-addon, addon: "{{ addons.kubedns }}" }
+
+# helm
+- hosts: kube-cluster
+  become: true
+  gather_facts: false
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: helm }
+  tasks:
+  - name: helm 安装 cert-manager
+    include_tasks: roles/helm/tasks/cert-manager.yml
+
+# to set up kubernetes cluster addons
+- hosts: "{{ groups['masters'][0] }}"
+  become: true
+  gather_facts: false
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    # - { role: k8s-addon, tags: traefik,       when: enable_ingress,       addon: "{{ addons.traefik }}" }
+    - { role: k8s-addon, tags: ingress-nginx, when: enable_ingress,       addon: "{{ addons.ingress_nginx }}" }
+    - { role: k8s-addon, tags: metallb,       when: enable_metallb,       addon: "{{ addons.metallb }}" }
+    - { role: k8s-addon, tags: dashboard,     when: enable_dashboard,     addon: "{{ addons.dashboard }}" }
+    - { role: k8s-addon, tags: metric-server, when: enable_metric_server, addon: "{{ addons.metric_server }}" }
+    - { role: k8s-addon, tags: monitoring,    when: enable_monitoring,    addon: "{{ addons.monitoring }}" }
+    - { role: k8s-addon, tags: logging,       when: enable_logging,       addon: "{{ addons.logging }}" }
+  tasks:
+  - name: 创建核心组件的 endpoint
+    shell: >
+      {{ bin_dir }}/kubectl apply -f {{ manifest_dir }}/{{ item }}
+    with_items:
+      - core-server-ep.yml
+      - kubelet-ep.yml
+    run_once: true
+    when: enable_monitoring
+    delegate_to: "{{ groups['masters'][0] }}"

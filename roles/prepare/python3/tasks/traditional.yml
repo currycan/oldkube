@@ -1,0 +1,72 @@
+- block:
+  - name: 传统方式安装 python3 repo
+    yum:
+      name: "https://centos{{ ansible_distribution_major_version }}.iuscommunity.org/ius-release.rpm"
+      state: present
+      update_cache: true
+    environment:
+      http_proxy: "{{ proxy_env.http_proxy }}"
+      https_proxy: "{{ proxy_env.https_proxy }}"
+
+  - name: 传统方式安装 python3
+    yum:
+      name: "{{ item }}"
+      state: present
+    with_items:
+      - python36u
+      - python36u-devel
+      - python36u-pip
+    environment:
+      http_proxy: "{{ proxy_env.http_proxy }}"
+      https_proxy: "{{ proxy_env.https_proxy }}"
+
+  - name: 修改 yum 相关参数
+    shell: >
+      # cd /usr/bin/;ln -sf python3 python;
+      sed -i /usr/libexec/urlgrabber-ext-down -e 's@^#.*python.*@#! \/usr\/bin\/python2.7@g';
+      sed -i /usr/bin/yum -e 's@^#.*python.*@#! \/usr\/bin\/python2.7@g'
+      sed -i /usr/bin/pip -e 's@^#.*python.*@#! \/usr\/bin\/python2.7@g'
+  when: python3_result is failed and python3_pyenv == 'None' and 'ansible_distribution in ["CentOS","RedHat","Amazon"]'
+
+- block:
+  - name: 传统方式安装 python3 repo
+    apt_repository:
+      repo: "{{ item }}"
+      update_cache: true
+    with_items:
+      - ppa:deadsnakes/ppa
+
+  - name: 传统方式安装 python3
+    apt:
+      name: "{{ item }}"
+      state: present
+    with_items:
+      - python3.6
+      - python3.6-dev
+      - python36u-pip
+  when: python3_result is failed and python3_pyenv == 'None' and ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 16
+
+- block:
+  - name: 安装 ensurepip
+    shell: "{{ python3_command }} -m ensurepip"
+
+  - name: 下载 get-pip.py
+    get_url:
+      url: https://bootstrap.pypa.io/get-pip.py
+      dest: "{{ python3_tmpdir }}/"
+    environment:
+      http_proxy: "{{ proxy_env.http_proxy }}"
+      https_proxy: "{{ proxy_env.https_proxy }}"
+
+  - name: 安装 pip
+    shell: "{{ python3_command }} get-pip.py"
+    args:
+      chdir: "{{ python3_tmpdir }}"
+
+  - name: "pip 设置国内源"
+    shell: >
+      pip install --upgrade pip -i https://mirrors.ustc.edu.cn/pypi/web/simple  --trusted-host mirrors.ustc.edu.cn;
+      rm -f ~/.config/pip/pip.conf;
+      pip config set global.index-url https://mirrors.ustc.edu.cn/pypi/web/simple;
+      pip config set global.trusted-host mirrors.ustc.edu.cn
+  when: pip3_result is failed

@@ -1,0 +1,89 @@
+---
+
+- name: 创建 etcd PKI 目录(证书存放目录)
+  file: path={{ etcd_pki_dir }} state=directory
+  register: create_etcd_pki_dir
+
+- name: 创建 etcd 数据备份目录
+  file: path={{ etcd_bak_dir }} state=directory
+
+- name: 从 deploy 节点同步 etcd 证书文件
+  when: inventory_hostname != groups['masters'][0]
+  copy: src="{{ item }}" dest="{{ item }}"
+  with_items:
+    - "{{ etcd_ca }}"
+    - "{{ etcd_ca_key }}"
+    - "{{ etcd_cert }}"
+    - "{{ etcd_cert_key }}"
+    - "{{ etcd_cert_peer }}"
+    - "{{ etcd_cert_peer_key }}"
+    - "{{ etcd_healthcheck_client }}"
+    - "{{ etcd_healthcheck_client_key }}"
+
+- name: 创建 etcd 配置文件存放目录
+  file:
+    path: "{{ etcd_config_dir }}"
+    recurse: yes
+    state: directory
+
+- name: 创建 etcd 持久化数据存放目录
+  file:
+    path: "{{ etcd_data_dir }}"
+    recurse: yes
+    state: directory
+
+- name: 创建etcd配置文件
+  template: src=etcd-config.yml.j2 dest={{ etcd_config_file }}
+
+- name: 创建 etcd systemd service 文件
+  template:
+    src: etcd.service.j2
+    dest: "{{ systemd_service_dir }}/etcd.service"
+    owner: root
+    group: root
+    mode: 0644
+  register: change_etcd
+
+- name: 配置 etcd.sh 到/etc/profile.d/
+  template:
+    src: etcd.sh.j2
+    dest: /etc/profile.d/etcd.sh
+    owner: root
+    group: root
+    mode: 0770
+
+- name: 加载 etcd.sh 脚本
+  shell: >
+    source /etc/profile.d/etcd.sh
+
+- name: 配置 etcd 备份脚本
+  template: src={{ item.src }} dest={{ item.dest }}/{{ item.src.split('.')[:-1]|join('.') }} mode=0770
+  with_items:
+    - { src: 'etcd_cron.sh.j2', dest: '{{ bin_dir }}'}
+
+- name: 设置 etcd 数据备份，每天凌晨3点备份
+  cron:
+    name: "create etcd data backup"
+    minute: "0"
+    hour: "3"
+    job: "/usr/local/bin/etcd_cron.sh -c 4 -d {{ etcd_bak_dir }} &>/dev/null 2>&1"
+
+- name: 启动服务，并设置开机启动
+  when: change_etcd
+  systemd:
+    name: etcd
+    daemon_reload: yes
+    state: restarted
+    enabled: yes
+  register: started_etcd
+  until: started_etcd
+  retries: 10
+  delay: "{{ retry_stagger | random + 8 }}"
+
+- name: 以轮询的方式等待服务启动完成
+  when: started_etcd
+  shell: "systemctl status etcd.service|grep Active"
+  register: etcd_status
+  until: '"running" in etcd_status.stdout'
+  retries: 3
+  delay: "{{ retry_stagger | random + 8 }}"

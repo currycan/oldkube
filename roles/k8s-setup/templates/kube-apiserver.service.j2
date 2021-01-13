@@ -1,0 +1,70 @@
+{% macro etcd_initial_cluster() -%}
+{% for host in groups['etcds'] -%}
+  https://{{ hostvars[host]['ansible_' + iface].ipv4.address }}:2379{%- if not loop.last -%},{%- endif -%}
+{%- endfor -%}
+{% endmacro -%}
+
+[Unit]
+Description=Kubernetes API Server
+Documentation=https://github.com/kubernetes/kubernetes
+After=etcd.service
+Wants=etcd.service
+
+[Service]
+ExecStart={{ bin_dir }}/kube-apiserver \
+  --endpoint-reconciler-type=lease \
+  --apiserver-count=500 \
+  --runtime-config=admissionregistration.k8s.io/v1beta1 \
+  --cloud-provider=external \
+  --advertise-address={{ apiserver_advertise_address }} \
+  --allow-privileged=true \
+  --authorization-mode={{ apiserver_authorization_mode }} \
+  --client-ca-file={{ ca }} \
+  --enable-admission-plugins={{ apiserver_enable_admission }} \
+  --enable-bootstrap-token-auth=true \
+  --etcd-cafile={{ etcd_ca }} \
+  --etcd-certfile={{ apiserver_etcd_client }} \
+  --etcd-keyfile={{ apiserver_etcd_client_key }} \
+  --etcd-servers={{ etcd_initial_cluster() }} \
+  --insecure-port=0 \
+  --kubelet-client-certificate={{ kube_apiserver_kubelet }} \
+  --kubelet-client-key={{ kube_apiserver_kubelet_key }} \
+  --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname \
+  --proxy-client-cert-file={{ front_client }} \
+  --proxy-client-key-file={{ front_client_key }} \
+  --requestheader-allowed-names=front-proxy-client \
+  --requestheader-client-ca-file={{ front_ca }} \
+  --requestheader-extra-headers-prefix=X-Remote-Extra- \
+  --requestheader-group-headers=X-Remote-Group \
+  --requestheader-username-headers=X-Remote-User \
+  --secure-port={{ apiserver_secure_port }} \
+  --service-account-key-file={{ sa_public_key }} \
+  --service-cluster-ip-range={{ service_ip_range }} \
+  --tls-cert-file={{ apiserver }} \
+  --tls-private-key-file={{ apiserver_key }} \
+  --anonymous-auth=false \
+  --disable-admission-plugins={{ apiserver_disable_admission }} \
+  --service-node-port-range={{ service_node_port_range }} \
+  --profiling=false \
+  --enable-aggregator-routing=true \
+  --feature-gates=VolumeSnapshotDataSource=true,CSINodeInfo=true,CSIDriverRegistry=true,PodShareProcessNamespace=true \
+{% if (kube_version.split('.')[0]|int + kube_version.split('.')[1]|int/100)|float > 1.12 %}
+  --encryption-provider-config={{ encryption_config }} \
+{% endif %}
+  --http2-max-streams-per-connection=1000 \
+  --alsologtostderr \
+  --audit-policy-file={{ audit_policy }} \
+  --audit-log-path={{ apiserver_audit_log }} \
+  --audit-log-maxsize=100 \
+  --audit-log-maxbackup=10 \
+  --audit-log-maxage=30 \
+  --v={{ log_level | default(2)}}
+
+Type=notify
+LimitNOFILE=65536
+Restart=on-failure
+RestartSec=5
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

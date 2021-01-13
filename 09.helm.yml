@@ -1,0 +1,12 @@
+# to set up helm
+- hosts: "{{ groups['masters'][0] }}"
+  become: true
+  vars:
+    ansible_python_interpreter: "/usr/bin/python3"
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: helm }
+  tasks:
+  - name: helm 安装 cert-manager
+    include_tasks: roles/helm/tasks/cert-manager.yml

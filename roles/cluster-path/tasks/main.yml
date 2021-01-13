@@ -1,0 +1,7 @@
+---
+
+- name: 配置集群各目录路径
+  debug:
+    msg: "Check roles/cluster-path/defaults/main.yml"
+  tags:
+    - always

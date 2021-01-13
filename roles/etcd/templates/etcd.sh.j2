@@ -1,0 +1,9 @@
+alias etcd2="ETCDCTL_API=2 etcdctl --cert-file={{ etcd_healthcheck_client }} \
+    --key-file={{ etcd_healthcheck_client_key }} \
+    --ca-file={{ etcd_ca }} \
+    --endpoints '{% for host in groups['etcds'] %}https://{{  hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}:2379{% if not loop.last %},{% endif %}{% endfor %}'"
+
+alias etcd3="ETCDCTL_API=3 etcdctl --cert={{ etcd_healthcheck_client }} \
+    --key={{ etcd_healthcheck_client_key }} \
+    --cacert={{ etcd_ca }} \
+    --endpoints '{% for host in groups['etcds'] %}https://{{  hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}:2379{% if not loop.last %},{% endif %}{% endfor %}'"

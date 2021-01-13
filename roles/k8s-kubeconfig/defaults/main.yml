@@ -1,0 +1,77 @@
+---
+
+config:
+  cluster_name: "{{ cluster_name }}"
+  contexts:
+    - name: kubernetes-admin
+      context: kubernetes-admin@kubernetes
+      ca: "{{ ca }}"
+      cert: "{{ admin }}"
+      cert_key: "{{ admin_key }}"
+      path: "{{ admin_kubeconfig }}"
+    - name: system:kube-controller-manager
+      context: system:kube-controller-manager@kubernetes
+      ca: "{{ ca }}"
+      cert: "{{ controller_manager }}"
+      cert_key: "{{ controller_manager_key }}"
+      path: "{{ controller_manager_kubeconfig }}"
+    - name: system:kube-scheduler
+      context: system:kube-scheduler@kubernetes
+      ca: "{{ ca }}"
+      cert: "{{ scheduler }}"
+      cert_key: "{{ scheduler_key }}"
+      path: "{{ scheduler_kubeconfig }}"
+    - name: "system:node:{{ inventory_hostname }}"
+      context: "system:node:{{ inventory_hostname }}@kubernetes"
+      ca: "{{ ca }}"
+      cert: "{{ kubelet }}"
+      cert_key: "{{ kubelet_key }}"
+      path: "{{ kubelet_kubeconfig }}"
+    - name: "kube-proxy"
+      context: "system:kube-proxy@kubernetes"
+      ca: "{{ ca }}"
+      cert: "{{ kubeproxy }}"
+      cert_key: "{{ kubeproxy_key }}"
+      path: "{{ kubeproxy_kubeconfig }}"
+    - name: kubelet-bootstrap
+      context: default
+      ca: "{{ ca }}"
+      token: "{{ bootstrap_token }}"
+      path: "{{ bootstrap_kubeconfig }}"
+    - name: flanneld
+      context: "system:flanneld@kubernetes"
+      ca: "{{ ca }}"
+      cert: "{{ flanneld }}"
+      cert_key: "{{ flanneld_key }}"
+      path: "{{ flanneld_kubeconfig }}"
+copy_keys:
+  node:
+    - "{{ ca }}"
+    - "{{ ca_key }}"
+    - "{{ flanneld }}"
+    - "{{ flanneld_key }}"
+    - "{{ kubeproxy }}"
+    - "{{ kubeproxy_key }}"
+  master:
+    - "{{ ca }}"
+    - "{{ ca_key }}"
+    - "{{ flanneld }}"
+    - "{{ flanneld_key }}"
+    - "{{ admin }}"
+    - "{{ admin_key }}"
+    - "{{ apiserver }}"
+    - "{{ apiserver_key }}"
+    - "{{ kube_apiserver_kubelet }}"
+    - "{{ kube_apiserver_kubelet_key }}"
+    - "{{ controller_manager }}"
+    - "{{ controller_manager_key }}"
+    - "{{ scheduler }}"
+    - "{{ scheduler_key }}"
+    - "{{ kubeproxy }}"
+    - "{{ kubeproxy_key }}"
+    - "{{ front_ca }}"
+    - "{{ front_ca_key }}"
+    - "{{ front_client }}"
+    - "{{ front_client_key }}"
+    - "{{ sa_private_key }}"
+    - "{{ sa_public_key }}"

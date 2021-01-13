@@ -1,0 +1,44 @@
+---
+
+- hosts: masters
+  become: true
+  tags: reset_ha
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: cluster-reset, reset_ha: true }
+
+- hosts: "{{ hosts | default('kube-cluster') }}"
+  become: true
+  tags: reset_flannel
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: cluster-reset, reset_flannel: true }
+
+- hosts: "{{ hosts | default('kube-cluster') }}"
+  become: true
+  tags: reset_k8s
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: cluster-reset, reset_k8s: true }
+
+- hosts: etcds
+  become: true
+  tags: reset_etcd
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: cluster-reset, reset_etcd: true }
+
+- hosts:
+  - kube-cluster
+  - etcds
+  - chrony
+  become: true
+  tags: reset_kernel_module
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: cluster-reset, reset_kernel_module: false }

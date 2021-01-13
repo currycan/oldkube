@@ -1,0 +1,27 @@
+- name: 删除临时 cni 配置
+  file: path="{{ cni_etc_config }}" state=absent
+
+- block:
+  - name: 创建 Kubernetes {{container_network}} 部署文件
+    template:
+      src: "{{ container_network }}/{{ container_network }}.yml.j2"
+      dest: "{{ manifest_dir }}/{{ container_network }}.yml"
+    register: copy_cni
+
+  - name: 部署 Kubernetes {{container_network}}
+    when: copy_cni
+    command: |
+      {{ bin_dir }}/kubectl apply -f {{ manifest_dir }}/{{ container_network }}.yml
+    register: apply_cni
+    until: apply_cni.rc == 0
+    retries: 3
+    delay: "{{ retry_stagger | random + 2 }}"
+
+  - name: 轮询等待 flanneld 运行，视下载镜像速度而定
+    shell: "{{ bin_dir }}/kubectl get pod -n kube-system | grep flannel"
+    register: flanneld_status
+    until: '"Running" in flanneld_status.stdout and "0/1" not in flanneld_status.stdout'
+    retries: 10
+    delay: "{{ retry_stagger | random + 30 }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+  run_once: true

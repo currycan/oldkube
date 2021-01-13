@@ -1,0 +1,30 @@
+---
+
+- name: 从 deploy 节点同步 kubernetes 证书文件到各 {{ node_role }} 节点
+  when: inventory_hostname != groups['masters'][0]
+  copy: src="{{ item }}" dest="{{ item }}"
+  with_items: "{{ copy_keys['' + node_role] }}"
+
+- when: node_role == 'master'
+  include_tasks: create-configs.yml
+
+- when: node_role == 'node'
+  include_tasks: create-node-configs.yml
+
+- name: 从 deploy 节点分发 bootstrap_kubeconfig 文件到各 {{ node_role }} 节点
+  when: node_role == 'node'
+  copy: src="{{ item }}" dest="{{ item }}"
+  with_items:
+    - "{{ bootstrap_kubeconfig }}"
+
+- name: 添加 kubectl 命令自动补全
+  lineinfile:
+    dest: "{{ ansible_env.HOME }}/.bashrc"
+    state: present
+    regexp: 'kubectl completion'
+    line: 'source <(kubectl completion bash)'
+
+- name: 当前会话加载 kubectl 命令自动补全
+  shell: >
+    {{ bin_dir }}/kubectl completion bash > /etc/bash_completion.d/kubectl;
+    # source /etc/bash_completion.d/kubectl

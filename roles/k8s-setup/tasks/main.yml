@@ -1,0 +1,95 @@
+---
+
+- name: node 节点创建 Kubernetes admin config 目录
+  when: node_role == 'node'
+  file: path="{{ ansible_env.HOME }}/.kube/" state=directory
+
+- name: 复制 Kubernetes admin config to home 目录
+  copy: src="{{ admin_kubeconfig }}" dest="{{ ansible_env.HOME }}/.kube/config"
+
+- include_tasks: setup-masters.yml
+  when: node_role == 'master'
+
+- include_tasks: setup-nodes.yml
+
+- when: node_role == 'master' and init | default(true)
+  include_tasks: setup-resources.yml
+
+- name: 轮询等待 Kubernetes 三大核心组件启动
+  when: node_role == 'master'
+  shell: "systemctl status {{ item }}.service | grep Active"
+  register: kube_status
+  until: '"running" in kube_status.stdout'
+  retries: 8
+  delay: "{{ retry_stagger | random + 8 }}"
+  with_items:
+    - "kube-apiserver"
+    - "kube-controller-manager"
+    - "kube-scheduler "
+
+- name: 等待 kubectl 能操作集群
+  when: node_role == 'master'
+  shell: |
+    {{ bin_dir }}/kubectl get cs
+  register: waiting_for_cluster
+  until: waiting_for_cluster.rc == 0 and waiting_for_cluster.stdout.find("Unhealthy") == -1
+  retries: 3
+  delay: "{{ retry_stagger | random + 8 }}"
+  changed_when: false
+
+- name:  轮询等待 kubelet 启动
+  shell: "systemctl status kubelet.service | grep Active"
+  register: kubelet_status
+  until: '"running" in kubelet_status.stdout'
+  retries: 8
+  delay: "{{ retry_stagger | random + 8 }}"
+
+- name: 轮询等待 node 达到 Ready 状态
+  shell: "{{ bin_dir }}/kubectl get node {{ inventory_hostname }} | awk 'NR>1{print $2}'"
+  register: node_status
+  until: "'Ready' in node_status.stdout"
+  retries: 10
+  delay: "{{ retry_stagger | random + 8 }}"
+
+- name: master 节点分配角色
+  when: node_role == 'master'
+  shell: |
+    {{ bin_dir }}/kubectl label nodes {{ inventory_hostname }} kubernetes.io/role=master --overwrite
+  register: set_taint
+  until: set_taint.rc == 0
+  retries: 2
+  delay: "{{ retry_stagger | random + 3 }}"
+
+- name: 禁止 master 节点被调度
+  when: node_role == 'master' and "inventory_hostname not in groups['nodes']"
+  shell: |
+    {{ bin_dir }}/kubectl cordon {{ inventory_hostname }}
+  register: set_taint
+  until: set_taint.rc == 0
+  retries: 2
+  delay: "{{ retry_stagger | random + 3 }}"
+
+- name: node 节点分配角色
+  when: node_role == 'node'
+  shell: |
+    {{ bin_dir }}/kubectl label nodes {{ inventory_hostname }} kubernetes.io/role=node --overwrite
+  register: set_taint
+  until: set_taint.rc == 0
+  retries: 2
+  delay: "{{ retry_stagger | random + 3 }}"
+
+- block:
+  - name: 配置核心组件的 endpoint 清单文件，以便用于prometheus监控
+    template: src=endpoint/{{ item }}.j2 dest={{ manifest_dir }}/{{ item }}
+    with_items:
+      - core-server-ep.yml
+      - kubelet-ep.yml
+
+  - name: 创建核心组件的 endpoint
+    shell: >
+      {{ bin_dir }}/kubectl apply -f {{ manifest_dir }}/{{ item }}
+    with_items:
+      - core-server-ep.yml
+      - kubelet-ep.yml
+  run_once: true
+  delegate_to: "{{ groups['masters'][0] }}"

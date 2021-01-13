@@ -1,0 +1,19 @@
+# 时间校准, chrony 方式，可选！
+- hosts:
+    - kube-cluster
+    - etcds
+    - chrony
+  become: true
+  roles:
+    - { role: cluster-default }
+    - { role: prepare/chrony, when: "groups['chrony']|length > 0" }
+
+# 初始化
+- hosts:
+    - kube-cluster
+    - etcds
+  become: true
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: prepare/initialize }

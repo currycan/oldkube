@@ -1,0 +1,4 @@
+---
+
+- include_tasks: flannel.yml
+  when: container_network == 'flannel'

@@ -1,0 +1,18 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: grafana-ing
+  namespace: monitoring
+  annotations:
+    ingress.kubernetes.io/whitelist-source-range: 10.177.0.0/16 # change this range to admin IPs
+    ingress.kubernetes.io/rewrite-target: "/"
+spec:
+  tls:
+  - secretName: ""
+  rules:
+  - host: {{ grafana_domain_name }}
+    http:
+      paths:
+      - backend:
+          serviceName: grafana
+          servicePort: 3000

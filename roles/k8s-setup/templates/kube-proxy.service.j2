@@ -1,0 +1,30 @@
+[Unit]
+Description=Kubernetes Kube-Proxy Server
+Documentation=https://github.com/GoogleCloudPlatform/kubernetes
+After=network.target
+Requires=network.target
+
+[Service]
+# --hostname-override={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address  }}
+# kube-proxy 根据 --cluster-cidr 判断集群内部和外部流量，指定 --cluster-cidr 或 --masquerade-all 选项后
+# kube-proxy 会对访问 Service IP 的请求做 SNAT，这个特性与calico 实现 network policy冲突，因此禁用
+# --cluster-cidr={{ pod_network_cidr }}
+ExecStart={{ bin_dir }}/kube-proxy \
+  --healthz-port={{ kubeproxy_healthz_port }} \
+  --kubeconfig={{ kubeproxy_kubeconfig }} \
+  --metrics-port={{ kubeproxy_metrics_port }} \
+  --proxy-mode={{ kubeproxy_mode }} \
+  --ipvs-scheduler={{ kubeproxy_ipvs_scheduler }} \
+  --cleanup-ipvs \
+  --logtostderr=true \
+  --log-dir={{ kubeproxy_audit_log }} \
+  --v={{ log_level | default(2)}}
+
+LimitNOFILE=65536
+Restart=on-failure
+RestartSec=3
+StartLimitInterval=0
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

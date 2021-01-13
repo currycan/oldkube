@@ -1,0 +1,52 @@
+---
+
+log_level: 2
+
+# apiserver variables
+apiserver_disable_admission: "PersistentVolumeLabel"
+apiserver_enable_admission: "NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeClaimResize,DefaultStorageClass,DefaultTolerationSeconds,NodeRestriction,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota,Priority"
+apiserver_authorization_mode: "Node,RBAC"
+
+# controller_manager variables
+horizontal_pod_autoscaler:
+  downscale_delay: 15m
+  sync_period: 30s
+  tolerance: 0.1
+  readiness_delay: 30s
+  cpu_initialization_period: 5m0s
+attach_detach_reconcile_sync_period: 1m0s
+controller_manager_secure_port: 10257
+controller_manager_insecure_port: 10252
+terminated_pod_gc_threshold: 12500  #退出pod多少秒删除,默认12500
+# kubelet更新自身状态频率 https://github.com/kubernetes-sigs/kubespray/blob/master/docs/kubernetes-reliability.md
+node_status_update: Medium # set one of the Fast | Medium | Low | default
+node_monitor_period: 5s    # 如果改它确保它小于下面的值
+node_status_update_frequency: 10s
+node_monitor_grace_period: 40s
+pod_eviction_timeout: 5m
+# node 节点上 pod 网段掩码长度（决定每个节点最多能分配的pod ip地址）
+# 如果flannel 使用 --kube-subnet-mgr 参数，那么它将读取该设置为每个节点分配pod网段
+# https://github.com/coreos/flannel/issues/847
+node_cidr_mask_size: 24
+
+# scheduler variables
+scheduler_secure_port: 10259
+scheduler_insecure_port: 10251
+
+# kubelet variables
+# kubeadm config print init-defaults --component-configs KubeletConfiguration
+kubelet_bind_port: 10250
+kubelet_bind_read_port: 10255
+kubelet_bind_healthz_port: 10248
+# 配置为 kube 组件（kubelet,kube-proxy,dockerd 等）预留的资源量
+image_pull_progress_deadline: 5m
+# kube_reserved: "cpu=100m,memory=100Mi,ephemeral-storage=1Gi,pid=1000"
+# system_reserved: "cpu=150m,memory=150Mi,ephemeral-storage=1Gi,pid=1000"
+eviction_hard: "imagefs.available<15%,memory.available<150Mi,nodefs.available<10%,nodefs.inodesFree<5%"
+
+# kube-proxy variables
+kubeproxy_healthz_port: 10256
+kubeproxy_metrics_port: 10249
+
+runtime_sockets:
+  containerd: /run/containerd/containerd.sock

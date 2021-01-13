@@ -1,0 +1,32 @@
+[Unit]
+Description=Network fabric for containers
+After=network.target
+After=network-online.target
+Wants=network-online.target
+Before=docker.service
+
+[Service]
+Environment=NODE_NAME={{ inventory_hostname }}
+ExecStart={{ bin_dir }}/flanneld \
+  --kube-subnet-mgr=true \
+  --kubeconfig-file={{ flanneld_kubeconfig }} \
+  --ip-masq=true \
+  --iface={{ iface }} \
+  --public-ip={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} \
+  --subnet-file={{ flanneld_env }} \
+  --subnet-lease-renew-margin=60 \
+  --healthz-ip=0.0.0.0 \
+  --healthz-port=0 \
+  -v={{ log_level | default(2)}}
+
+Type=notify
+LimitNOFILE=65536
+Restart=on-failure
+RestartSec=5
+StartLimitInterval=0
+LimitNPROC=1048576
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
+RequiredBy=docker.service

@@ -1,0 +1,64 @@
+- block:
+  - name: 获取 crd 资源信息
+    shell: >
+      {{ bin_dir }}/kubectl get crd
+    register: get_crd_results
+
+  - name: 创建 cert-manager manifest 文件目录
+    file: path="{{ addon_dir }}/cert-manager" state=directory
+
+  - name: 创建 cert-manager manifest 文件
+    copy: src="../files/{{ item }}" dest="{{ addon_dir }}/cert-manager/{{ item }}"
+    with_items:
+      - 00-crds.yaml
+      - issuer-certs-acm.yaml
+      - issuer-certs.yaml
+
+  - name: 安装 cert-manager, 创建 crd 资源
+    shell: >
+      {{ bin_dir }}/kubectl apply -f {{ addon_dir }}/cert-manager/00-crds.yaml
+    when: "'certmanager' not in get_crd_results.stdout"
+
+  - name: 获取 helm 安装 chart 列表
+    shell: "{{ bin_dir }}/helm list --tls"
+    register: helm_list_results
+
+  - name: helm 安装 cert-manager
+    command: >
+      {{ bin_dir }}/helm install --tls --name=cert \
+      --namespace=cert-manager \
+      --set ingressShim.defaultIssuerName=letsencrypt-prod \
+      --set ingressShim.defaultIssuerKind=ClusterIssuer \
+      {{ inventory_dir }}/charts/cert-manager
+    when: "'cert-manager' not in helm_list_results.stdout"
+
+  - name: 轮询等待 cert-manager 运行
+    shell: "{{ bin_dir }}/kubectl get pod -n cert-manager -o wide"
+    register: pod_status
+    until: '"Running" in pod_status.stdout and "0/1" not in pod_status.stdout'
+    retries: 10
+    delay: "{{ retry_stagger | random + 20 }}"
+
+  - name: 创建  cluster issuer
+    shell: >
+      {{ bin_dir }}/kubectl apply -f {{ addon_dir }}/cert-manager/issuer-certs.yaml
+
+  # - name: 使用 helm 安装 cert-manager
+  #   helm:
+  #     # Port forwarding from tiller to localhost
+  #     host: "{{ helm_host }}"
+  #     port: "{{ helm_port }}"
+  #     state: present
+  #     name: cert
+  #     namespace: "cert-manager"
+  #     chart:
+  #       name: cert-manager
+  #       source:
+  #         type: directory
+  #         location: "{{ inventory_dir }}/charts/cert-manager"
+  #     values:
+  #       ingressShim:
+  #         defaultIssuerName: "letsencrypt-prod"
+  #         defaultIssuerKind: "ClusterIssuer"
+  run_once: ture
+  delegate_to: "{{ groups['masters'][0] }}"

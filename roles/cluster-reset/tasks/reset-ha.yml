@@ -1,0 +1,17 @@
+---
+
+- name: rm service keepalived and haproxy
+  service: name={{ item }} state=stopped enabled=no
+  with_items:
+    - keepalived
+    - haproxy
+  ignore_errors: true
+
+- name: remove files and dirs
+  file: name={{ item }} state=absent
+  with_items:
+    - "/etc/haproxy"
+    - "/etc/keepalived"
+    - "{{ systemd_service_dir }}/haproxy.service"
+    - "{{ systemd_service_dir }}/keepalived.service"
+  ignore_errors: True

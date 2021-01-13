@@ -1,0 +1,55 @@
+---
+
+- name: 创建 manifest 文件存放目录
+  file: path={{ manifest_dir }} state=directory
+
+- block:
+  - name: 配置 kube-apiserver kubelet kube-proxy 和 healthz-reader rbac准入文件
+    copy: src="{{ item }}" dest="{{ manifest_dir }}/{{ item }}"
+    with_items:
+      - apiserver-to-kubelet-rbac.yml
+      - kubelet-bootstrap-rbac.yml
+      - healthz-reader-rbac.yml
+    register: copy_rbac_file
+
+  - name: 配置 apiserver TLS bootstrap secret
+    template: src=bootstrap-secret/kubelet-bootstrap-secret.yml.j2 dest="{{ manifest_dir }}/kubelet-bootstrap-secret.yml"
+    register: copy_sercet_file
+
+  - name: 创建 kubelet apiserver RBAC
+    when: copy_rbac_file and service_started
+    command: |
+      {{ bin_dir }}/kubectl apply -f {{ manifest_dir }}/apiserver-to-kubelet-rbac.yml
+    register: create_result
+    until: create_result.rc == 0
+    retries: 1
+    delay: "{{ retry_stagger | random + 3 }}"
+
+  - name: 创建 kubelet bootstrap secret
+    when: copy_sercet_file and service_started
+    command: |
+      {{ bin_dir }}/kubectl apply -f {{ manifest_dir }}/kubelet-bootstrap-secret.yml
+    register: create_result
+    until: create_result.rc == 0
+    retries: 1
+    delay: "{{ retry_stagger | random + 3 }}"
+
+  - name: 创建 kubelet bootstrap RBAC
+    when: copy_rbac_file and service_started
+    command: |
+      {{ bin_dir }}/kubectl apply -f {{ manifest_dir }}/kubelet-bootstrap-rbac.yml
+    register: create_result
+    until: create_result.rc == 0
+    retries: 1
+    delay: "{{ retry_stagger | random + 3 }}"
+
+  - name: 创建 healthz reader RBAC
+    when: copy_rbac_file and service_started
+    command: |
+      {{ bin_dir }}/kubectl apply -f {{ manifest_dir }}/healthz-reader-rbac.yml
+    register: create_result
+    until: create_result.rc == 0
+    retries: 1
+    delay: "{{ retry_stagger | random + 3 }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+  run_once: true

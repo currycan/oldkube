@@ -1,0 +1,63 @@
+---
+
+- name: 判断 kubeconfig 文件是否存在
+  stat: path="{{ item.path }}"
+  with_items: "{{ config.contexts }}"
+  register: check_config_files
+
+- block:
+  - name: 设置集群参数(单 master 节点)
+    when: not item.stat.exists and groups['masters'] | length == 1
+    command: |
+      {{ bin_dir }}/kubectl config set-cluster {{ config.cluster_name }} \
+        --certificate-authority={{ item.item.ca }} \
+        --embed-certs=true \
+        --server={{ single_api_url }} \
+        --kubeconfig={{ item.item.path }}
+    with_items: "{{ check_config_files['results'] }}"
+    register: set_cluster_config
+
+  - name: 设置集群参数
+    when: not item.stat.exists and groups['masters'] | length > 1
+    command: |
+      {{ bin_dir }}/kubectl config set-cluster {{ config.cluster_name }} \
+        --certificate-authority={{ item.item.ca }} \
+        --embed-certs=true \
+        --server={{ lb_api_url }} \
+        --kubeconfig={{ item.item.path }}
+    with_items: "{{ check_config_files['results'] }}"
+    register: set_cluster_config
+
+  - name: 设置客户端认证参数
+    when: set_cluster_config and not item.stat.exists
+    command: |
+      {{ bin_dir }}/kubectl config set-credentials {{ item.item.name }} \
+        {% if item.item.token is defined -%}
+        --token={{ item.item.token }} \
+        {% else %}
+        --client-certificate={{ item.item.cert }} \
+        --client-key={{ item.item.cert_key }} \
+        --embed-certs=true \
+        {% endif -%}
+        --kubeconfig={{ item.item.path }}
+    with_items: "{{ check_config_files['results'] }}"
+    register: set_credentials_config
+
+  - name: 设置上下文参数
+    when: set_credentials_config and not item.stat.exists
+    command: |
+      {{ bin_dir }}/kubectl config set-context {{ item.item.context }} \
+        --cluster={{ config.cluster_name }} \
+        --user={{ item.item.name }} \
+        --kubeconfig={{ item.item.path }}
+    with_items: "{{ check_config_files['results'] }}"
+    register: set_context_config
+
+  - name: 选择默认上下文
+    when: set_context_config and not item.stat.exists
+    command: |
+      {{ bin_dir }}/kubectl config use-context {{ item.item.context }} \
+        --kubeconfig={{ item.item.path }}
+    with_items: "{{ check_config_files['results'] }}"
+    register: use_context_config
+  when: '"system:node:" in item.item.name or "kube-proxy" in item.item.name or "flanneld" in item.item.name'

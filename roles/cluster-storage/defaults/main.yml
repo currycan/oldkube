@@ -1,0 +1,18 @@
+# 动态存储类型, 目前支持自建nfs和aliyun_nas
+storage:
+  # nfs server 参数
+  nfs:
+    enabled: "yes"
+    server: "{{ storage_server_address }}"
+    server_path: "/mnt/k8s-nfs"
+    storage_class: "nfs-storage-class"
+    provisioner_image: "quay.azk8s.cn/external_storage/nfs-client-provisioner:v3.1.0-k8s1.11"
+    provisioner_name: "nfs-storage-class"
+
+  # aliyun_nas 参数
+  aliyun_nas:
+    enabled: "no"
+    server: "xxxxxxxxxxx.cn-hangzhou.nas.aliyuncs.com"
+    server_path: "/"
+    storage_class: "class-aliyun-nas-class"
+    controller_name: "aliyun-nas-controller"

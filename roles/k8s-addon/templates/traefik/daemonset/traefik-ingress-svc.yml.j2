@@ -1,0 +1,35 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: traefik-ingress-service
+  namespace: traefik
+spec:
+  {% if ingress_lb_address != '' -%}
+  externalIPs:
+  - {{ ingress_lb_address }}
+  {% endif -%}
+  selector:
+    k8s-app: traefik-ingress-lb
+  ports:
+    - protocol: TCP
+      # 该端口为 traefik ingress-controller的http服务端口
+      port: 80
+      name: http
+    - protocol: TCP
+      # 该端口为 traefik ingress-controller的https服务端口
+      port: 443
+      name: https
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik-dashboard
+  namespace: traefik
+spec:
+  selector:
+    k8s-app: traefik-ingress-lb
+  ports:
+  - protocol: TCP
+    # 该端口为 traefik 的管理WEB界面
+    port: 8080
+    name: dashboard-http

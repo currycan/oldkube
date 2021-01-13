@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-metallb-dpl
+spec:
+  selector:
+    matchLabels:
+      app: test-metallb
+  template:
+    metadata:
+      labels:
+        app: test-metallb
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - name: http
+          containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-metallb-svc
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: test-metallb
+  type: LoadBalancer
+  # externalIPs:
+  #   - 10.177.92.248
+  # loadBalancerIP: 10.177.92.249

@@ -1,0 +1,7 @@
+- hosts: kube-cluster
+  become: true
+  serial: 1
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: container-runtime, node_role: 'master', tags: 'upgrade' }

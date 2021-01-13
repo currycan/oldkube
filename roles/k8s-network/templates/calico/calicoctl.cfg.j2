@@ -1,0 +1,9 @@
+apiVersion: projectcalico.org/v3
+kind: CalicoAPIConfig
+metadata:
+spec:
+  datastoreType: "etcdv3"
+  etcdEndpoints: {% for host in groups['etcds'] -%}https://{{ hostvars[host]['ansible_' + iface].ipv4.address }}:2379{%- if not loop.last -%},{%- endif -%}{%- endfor -%}
+  etcdKeyFile: /etc/calico/ssl/calico-key.pem
+  etcdCertFile: /etc/calico/ssl/calico.pem
+  etcdCACertFile: {{ ca_dir }}/ca.pem

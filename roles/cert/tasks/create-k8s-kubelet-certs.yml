@@ -1,0 +1,26 @@
+---
+
+- name: 检查 kubelet 证书是否存在
+  stat:
+    path: "{{ kubelet }}"
+  register: check_kubelet_ssl_file
+
+- name: 创建 kubelet 证书签名请求文件
+  when: not check_kubelet_ssl_file.stat.exists
+  template:
+    src: kubelet-csr.json.j2
+    dest: "{{ pki_dir }}/kubelet-csr.json"
+  register: gen_kubelet_json_file
+
+- name: 生成 kubelet 证书
+  when: not check_kubelet_ssl_file.stat.exists
+  shell: |
+    {{ bin_dir }}/cfssl gencert \
+      -ca={{ pki_dir }}/ca.pem \
+      -ca-key={{ pki_dir }}/ca-key.pem \
+      -config={{ ca_config }} \
+      -hostname="{{ inventory_hostname }}" \
+      -profile={{ cert_info_profile }} \
+      {{ pki_dir }}/kubelet-csr.json | \
+      {{ bin_dir }}/cfssljson -bare {{ pki_dir }}/kubelet
+  register: create_kubelet_ssl_file

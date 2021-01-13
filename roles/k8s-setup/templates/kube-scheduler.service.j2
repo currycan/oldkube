@@ -1,0 +1,35 @@
+[Unit]
+Description=Kubernetes Scheduler
+Documentation=https://github.com/kubernetes/kubernetes
+After=kube-apiserver.service
+Requires=kube-apiserver.service
+
+[Service]
+ExecStart={{ bin_dir }}/kube-scheduler \
+  --kubeconfig={{ scheduler_kubeconfig }} \
+  --leader-elect=true \
+{% if (kube_version.split('.')[0]|int + kube_version.split('.')[1]|int/100)|float > 1.12 %}
+  --tls-cert-file={{ scheduler }}\
+  --tls-private-key-file={{ scheduler_key }} \
+  --secure-port={{ scheduler_secure_port }} \
+  --port={{ scheduler_insecure_port }} \
+  --client-ca-file={{ ca }} \
+  --requestheader-client-ca-file={{ front_ca }} \
+  --requestheader-username-headers=X-Remote-User \
+  --requestheader-group-headers=X-Remote-Group \
+  --requestheader-extra-headers-prefix=X-Remote-Extra- \
+  --authorization-kubeconfig={{ scheduler_kubeconfig }} \
+  --authentication-kubeconfig={{ scheduler_kubeconfig }} \
+  --alsologtostderr \
+{% endif %}
+  --log-dir={{ scheduler_audit_log }}\
+  --v={{ log_level | default(2)}}
+
+LimitNOFILE=65536
+Restart=on-failure
+RestartSec=3
+StartLimitInterval=0
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

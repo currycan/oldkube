@@ -1,0 +1,16 @@
+# 提权操作
+centos:
+  kernel_version: "{{ kernel_version }}"
+
+ubuntu:
+  kernel_version: "4.20.17"
+  kernel_repo: "https://kernel.ubuntu.com/~kernel-ppa/mainline"
+  linux_base:
+  - http://security.ubuntu.com/ubuntu/pool/main/l/linux-base/linux-base_4.5ubuntu1~16.04.1_all.deb
+
+kernel_file:
+  ubuntu:
+    - "{{ ubuntu.kernel_repo }}/v{{ ubuntu.kernel_version }}/linux-headers-{{ ubuntu.kernel_version }}-042017_{{ ubuntu.kernel_version }}-042017.201903190933_all.deb"
+    - "{{ ubuntu.kernel_repo }}/v{{ ubuntu.kernel_version }}/linux-modules-{{ ubuntu.kernel_version }}-042017-generic_{{ ubuntu.kernel_version }}-042017.201903190933_amd64.deb"
+    - "{{ ubuntu.kernel_repo }}/v{{ ubuntu.kernel_version }}/linux-image-unsigned-{{ ubuntu.kernel_version }}-042017-generic_{{ ubuntu.kernel_version }}-042017.201903190933_amd64.deb"
+

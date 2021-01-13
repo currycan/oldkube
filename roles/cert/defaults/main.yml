@@ -1,0 +1,16 @@
+---
+
+etcd_hosts: "{%- if groups['masters'] | length > 1 -%}{{ vip_address }},{%- endif %}{% for host in groups['etcds'] %}{{ hostvars[host]['ansible_' + iface].ipv4.address }}{% if not loop.last %},{% endif %}{% endfor %},{% for host in groups['etcds'] %}{{ hostvars[host].ansible_hostname }}{% if not loop.last %},{% endif %}{% endfor %},127.0.0.1,{{ etcd_domain_name }}"
+
+base_hosts: "{%- if groups['masters'] | length > 1 -%}{{ vip_address }},{%- endif %}{% for host in groups['masters'] %}{{ hostvars[host]['ansible_' + iface].ipv4.address }}{% if not loop.last %},{% endif %}{% endfor %},{% for host in groups['masters'] %}{{ hostvars[host].ansible_hostname }}{% if not loop.last %},{% endif %}{% endfor %},*.master.kubernetes.node,127.0.0.1,localhost"
+
+apiserver_hosts: "{{ base_hosts }},{{ api_service_ip }},kubernetes,kubernetes.default,kubernetes.default.svc,kubernetes.default.svc.cluster,kubernetes.default.svc.cluster.local"
+
+cert_key_algo: rsa
+cert_key_size: 2048
+cert_info_country: CN
+cert_info_state: ShangHai
+cert_info_locality: ""
+cert_info_org_uit: ""
+cert_info_expiry: 87600h
+cert_info_profile: kubernetes

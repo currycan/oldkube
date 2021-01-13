@@ -1,0 +1,104 @@
+- block:
+  # - name: 导入变量
+  #   include_vars:
+  #     file: ./roles/cert/defaults/main.yml
+  - name: 渲染 kubernetes 所有证书签名请求文件
+    stat:
+      path: "{{ pki_dir }}/{{ item.bare }}.pem"
+    with_items:
+      # kubernetes general CA
+      - { file: ca-csr.json, name: kubernetes-ca , org: "kubernetes", bare: ca }
+      # kubectl admin client
+      - { file: admin-csr.json, name: kubernetes-admin, org: "system:masters", bare: admin }
+      # kube-apiserver server
+      - { file: apiserver-csr.json, name: kube-apiserver, hosts: "{{ apiserver_hosts }}", org: "kubernetes", bare: apiserver }
+      # kube-apiserver-kubelet-client client
+      - { file: kube-apiserver-kubelet-client-csr.json, name: kube-apiserver-kubelet-client, org: "system:masters", bare: apiserver-kubelet-client }
+      # kube-controller-manager
+      - { file: manager-csr.json, name: "system:kube-controller-manager", hosts: "{{ base_hosts }}", org: "system:kube-controller-manager", bare: controller-manager }
+      # kube-scheduler
+      - { file: scheduler-csr.json, name: "system:kube-scheduler", hosts: "{{ base_hosts }}", org: "system:kube-scheduler", bare: scheduler }
+      # kubernetes-front ca
+      - { file: front-proxy-ca-csr.json, name: kubernetes-front-proxy-ca, org: "kubernetes", bare: front-proxy-ca }
+      # kubernetes-front client
+      - { file: front-proxy-client-csr.json, name: front-proxy-client, org: "kubernetes", bare: front-proxy-client }
+      # kubernetes-front client
+      - { file: kube-proxy-csr.json, name: "system:kube-proxy", org: "system:kube-proxy", bare: kube-proxy }
+      # flanneld
+      - { file: flanneld-csr.json, name: flanneld, org: "system:flanneld", bare: flanneld }
+      # helm
+      - { file: helm-csr.json, name: helm, org: "system:helm", bare: helm }
+      # tiller
+      - { file: tiller-csr.json, name: tiller, org: "system:tiller", bare: tiller }
+    register: check_json_files
+
+  - name: 创建 kubernetes 证书签名请求文件
+    when: check_json_files and not item.stat.exists
+    template:
+      src: ca-csr.json.j2
+      dest: "{{ pki_dir }}/{{ item.item.file }}"
+    with_items: "{{ check_json_files['results'] }}"
+    register: gen_json_files
+
+  - name: 检查 kubernetes CA 证书是否存在
+    stat:
+      path: "{{ pki_dir }}/{{ item.bare }}.pem"
+    with_items:
+      - { file: ca-csr.json, bare: ca }
+      - { file: front-proxy-ca-csr.json, bare: front-proxy-ca }
+    register: check_ca_files
+
+  - name: 生成 kubernetes CA 证书
+    when: check_ca_files and not item.stat.exists
+    shell: |
+      {{ bin_dir }}/cfssl gencert -initca {{ pki_dir }}/{{ item.item.file }} | \
+        {{ bin_dir }}/cfssljson -bare {{ pki_dir }}/{{ item.item.bare }}
+    with_items: "{{ check_ca_files['results'] }}"
+    register: create_ca_files
+
+  - name: 检查 kubernetes 各组件证书是否存在
+    stat:
+      path: "{{ pki_dir }}/{{ item.bare }}.pem"
+    with_items:
+      - { file: admin-csr.json, ca: ca, bare: admin }
+      - { file: apiserver-csr.json, ca: ca, hosts: "{{ apiserver_hosts }}", bare: apiserver }
+      - { file: manager-csr.json, ca: ca, hosts: "{{ base_hosts }}", bare: controller-manager }
+      - { file: scheduler-csr.json, ca: ca, hosts: "{{ base_hosts }}", bare: scheduler }
+      - { file: kube-apiserver-kubelet-client-csr.json, ca: ca, bare: apiserver-kubelet-client }
+      - { file: front-proxy-client-csr.json, ca: front-proxy-ca, bare: front-proxy-client }
+      - { file: kube-proxy-csr.json, ca: ca, bare: kube-proxy }
+      - { file: flanneld-csr.json, ca: ca, bare: flanneld }
+      - { file: helm-csr.json, ca: ca, bare: helm }
+      - { file: tiller-csr.json, ca: ca, bare: tiller }
+    register: check_ssl_files
+
+  - name: 生成 kubernetes 各组件证书
+    when: check_ssl_files and not item.stat.exists
+    shell: |
+      {{ bin_dir }}/cfssl gencert \
+        -ca={{ pki_dir }}/{{ item.item.ca }}.pem \
+        -ca-key={{ pki_dir }}/{{ item.item.ca }}-key.pem \
+        -config={{ ca_config }} \
+        {% if item.item.hosts is defined -%}
+        -hostname={{ item.item.hosts }} \
+        {% endif -%}
+        -profile={{ cert_info_profile }} \
+        {{ pki_dir }}/{{ item.item.file }} | \
+        {{ bin_dir }}/cfssljson -bare {{ pki_dir }}/{{ item.item.bare }}
+    with_items: "{{ check_ssl_files['results'] }}"
+    register: create_ssl_files
+
+  - name: 检查 service account 私钥是否存在
+    stat:
+      path: "{{ pki_dir  }}/sa.key"
+    register: check_sa_key
+
+  - name: 生成 service account 公私钥证书对
+    when: not check_sa_key.stat.exists
+    command: "{{ item }}"
+    with_items:
+      - "openssl genrsa -out {{ pki_dir}}/sa.key 2048"
+      - "openssl rsa -in {{ pki_dir }}/sa.key -pubout -out {{ pki_dir }}/sa.pub"
+    register: create_sa_key
+  run_once: true
+  delegate_to: "{{ groups['masters'][0] }}"

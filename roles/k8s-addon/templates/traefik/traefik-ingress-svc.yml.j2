@@ -1,0 +1,46 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik
+  namespace: traefik
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/part-of: traefik
+spec:
+  selector:
+    k8s-app: traefik-ingress-lb
+  # type: ClusterIP
+  # type: NodePort
+  type: LoadBalancer
+  {% if ingress_lb_address != '' -%}
+  loadBalancerIP: {{ ingress_lb_address }}
+  {% endif -%}
+  ports:
+    - protocol: TCP
+      # 该端口为 traefik ingress-controller 的 http 服务端口
+      port: 80
+      # nodePort: 23456
+      name: http
+    - protocol: TCP
+      # 该端口为 traefik ingress-controller 的 https 服务端口
+      port: 443
+      # nodePort: 23457
+      name: https
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik-dashboard
+  namespace: traefik
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/part-of: traefik
+spec:
+  selector:
+    k8s-app: traefik-ingress-lb
+  ports:
+  - protocol: TCP
+    # 该端口为 traefik 的管理 WEB 界面
+    port: 8080
+    name: dashboard-http

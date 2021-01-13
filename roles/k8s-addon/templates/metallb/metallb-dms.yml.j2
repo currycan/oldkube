@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  namespace: metallb-system
+  name: speaker
+  labels:
+    app: metallb
+    component: speaker
+spec:
+  selector:
+    matchLabels:
+      app: metallb
+      component: speaker
+  template:
+    metadata:
+      labels:
+        app: metallb
+        component: speaker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "7472"
+    spec:
+      serviceAccountName: speaker
+      terminationGracePeriodSeconds: 0
+      hostNetwork: true
+      # kubectl label nodes xxxxx node-role.kubernetes.io/metallb-speaker="true"
+      nodeSelector:
+        # node-role.kubernetes.io/metallb-speaker: "true"
+        beta.kubernetes.io/os: linux
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+      containers:
+      - name: speaker
+        image: metallb/speaker:{{ metallb_version }}
+        imagePullPolicy: IfNotPresent
+        args:
+        - --port=7472
+        - --config=config
+        env:
+        - name: METALLB_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: METALLB_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        ports:
+        - name: monitoring
+          containerPort: 7472
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            - SYS_ADMIN
+            drop:
+            - ALL

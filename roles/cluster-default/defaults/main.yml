@@ -1,0 +1,234 @@
+---
+
+########################
+# Binary files version #
+########################
+
+kube_version: "1.14.6"
+kubekrew_version: "0.2.1"
+docker_version: "19.03.9"
+containerd_version: "1.3.9"
+cri_tools_version: "1.19.0"
+doker_compose_version: "1.24.0"
+cfssl_version: "1.2"
+etcd_version: "3.3.13"
+cni_version: "0.8.1"
+flanneld_version: "0.11.0"
+calico_version: "3.6.3"
+coredns_version: "1.5.1"
+helm_version: "2.14.1"
+harbor_version: "1.8.1"
+
+# ustc epel 源
+# epel_yum_repo: http://mirrors.aliyun.com/epel/7/$basearch
+epel_yum_repo: http://mirrors.ustc.edu.cn/epel/7/$basearch
+
+###################
+# Kubernetes opts #
+###################
+
+# kernel version, lt or ml for centos
+# 4.19版内核之后将nf_conntrack_ipv4更名为nf_conntrack，kube-proxy 1.12版本不支持在4.19以上版本内核下开启ipvs,建议安装4.18版或者lts版内核
+# 详情可以查看：https://github.com/kubernetes/kubernetes/issues/70304
+## centos 系统
+# centos_kernel_repo: "http://mirror.rc.usf.edu/compute_lock/elrepo/kernel/el7/x86_64/RPMS"
+# centos_kernel_repo: "https://elrepo.org/linux/kernel/el7/x86_64/RPMS"
+centos_kernel_repo: "http://mirror.rc.usf.edu/elrepo/kernel/el7/x86_64/RPMS"
+# centos_kernel_repo: "http://files.saas.hand-china.com/kernel/centos"
+centos_kernel_type: "ml"
+# centos_kernel_type: "lt"
+# 5.x的版本有问题，会导致宿主机的网络不可用，虚机都无法访问
+# centos_kernel_version: "4.20.13"
+centos_kernel_version: "5.10.3"
+centos_kernel_rpm_files:
+  - "kernel-{{ centos_kernel_type }}-{{ centos_kernel_version }}-1.el7.elrepo.x86_64.rpm"
+  - "kernel-{{ centos_kernel_type }}-devel-{{ centos_kernel_version }}-1.el7.elrepo.x86_64.rpm"
+  - "kernel-{{ centos_kernel_type }}-headers-{{ centos_kernel_version }}-1.el7.elrepo.x86_64.rpm"
+  - "kernel-{{ centos_kernel_type }}-tools-{{ centos_kernel_version }}-1.el7.elrepo.x86_64.rpm"
+  - "kernel-{{ centos_kernel_type }}-tools-libs-{{ centos_kernel_version }}-1.el7.elrepo.x86_64.rpm"
+  - "kernel-{{ centos_kernel_type }}-tools-libs-devel-{{ centos_kernel_version }}-1.el7.elrepo.x86_64.rpm"
+  - "perf-{{ centos_kernel_version }}-1.el7.elrepo.x86_64.rpm"
+  - "python-perf-{{ centos_kernel_version }}-1.el7.elrepo.x86_64.rpm"
+
+# Random shifts for retrying failed ops like pushing/downloading
+retry_stagger: 5
+
+# etcd extra variables.
+etcd_domain_name: test.etcd.com
+# 0 3 * * * /usr/local/bin/etcd_cron.sh -c 4 -d /etcd_bak &>/dev/null 2>&1
+etcd_bak_dir: /data_bak/etcd
+# 推荐在 Kubernetes 集群中使用 Etcd v3，v2 版本已在 Kubernetes v1.11 中弃用。
+# etcd_api_version: 2
+etcd_api_version: 3
+
+# Container runtime,
+# Supported: docker, containerd
+container_runtime: docker
+
+# kube-proxy variables
+# 为解决 iptables 模式的性能问题，v1.11 新增了 ipvs 模式（v1.8 开始支持测试版，并在 v1.11 GA）
+# Supported: iptables or ipvs
+kubeproxy_mode: ipvs
+kubeproxy_ipvs_scheduler: wrr
+
+# Container network,
+# Supported: calico, flannel
+container_network: flannel
+cni_interface: "{{ iface }}"
+# 有效的私有网段，即以下网段及其子网：10.0.0.0/8，172.16-31.0.0/12-16，192.168.0.0/16
+flanneld_ip_range: "172.16.0.0/16"
+flanneld_subnet_len: 24
+# flanneld_backend_type: "vxlan"
+flanneld_backend_type: "host-gw"
+
+# Kubernetes cluster network
+pod_network_cidr: "{{ flanneld_ip_range }}"
+# 可选范围：10.0.0.0/16-24，172.16-31.0.0/16-24，192.168.0.0/16-24
+cluster_subnet: 172.17.0
+service_ip_range: "{{ cluster_subnet }}.0/20"
+service_node_port_range: 30000-32767
+api_service_ip: "{{ cluster_subnet }}.1"
+cluster_dns_ip: "{{ cluster_subnet }}.2"
+cluster_name: kubernetes
+cluster_domain_name: "cluster.local"
+max_pods: 128
+
+# Kubernetes HA extra variables
+enable_keepalived: true
+enable_haproxy: true
+vip_interface: "{{ iface }}"
+vip_address: 10.177.140.240
+apiserver_advertise_address: "{%- if groups['masters'] | length == 1 -%}{{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}{%- else -%}{{ vip_address }}{%- endif %}"
+lb_secure_port: 8443
+apiserver_secure_port: 6443
+lb_api_url: "https://{{ vip_address }}:{{ lb_secure_port }}"
+single_api_url: "https://{{ groups['masters'][0] }}:{{ apiserver_secure_port }}"
+
+# Kubernetes bootstrap token
+bootstrap_token_id: "6ac849"
+bootstrap_token_secret: "18fac0a6405e8e15"
+bootstrap_token: "{{ bootstrap_token_id }}.{{ bootstrap_token_secret }}"
+
+# Kubernetes secret encryption
+encryption_token: iTNwwjHuxNI9+8niwh8GJKT5NQiHFqcOTrrhzYfhAvk=
+
+# Kubernetes extra addons
+enable_ingress: true
+enable_metallb: true
+enable_dashboard: true
+enable_metric_server: false
+enable_monitoring: false
+enable_logging: false
+
+# 选择 traefik 还是 nginx ingress
+# ingress_type: traefik
+ingress_type: nginx_ingress
+
+# addons opts
+# k8s.gcr.io 等价于 gcr.io/google-containers
+# 用 Azure 仓库替换谷歌仓库，gcr.io ==> gcr.azk8s.cn
+local_image_repo: "harbor.test.com"
+k8s_image_repo: "registry.cn-hangzhou.aliyuncs.com"
+quay_image_repo: "quay.io"
+
+# kubelet
+pod_infra_container_image: "{{ k8s_image_repo }}/google_containers/pause:3.1"
+
+# flannel cni
+flanneld_image: "gcrxio/quay.io_coreos_flannel:v{{ flanneld_version }}-amd64"
+
+# coredns
+coredns_image: "coredns/coredns:{{ coredns_version }}"
+cluster_proportional_autoscaler_image: "{{ k8s_image_repo }}/google_containers/cluster-proportional-autoscaler-amd64:1.6.0"
+
+# Ingress
+ingress_lb_address: "10.177.140.253"
+ingress_secret_name: ingress-certs
+# traefik ingress
+traefik_domain_name: traefik.test.com
+traefik_image_name: traefik:v1.7.12
+# nginx ingress
+nginx_ingress_controller_domain_name: nginx.test.com
+# k8s.gcr.io/defaultbackend-amd64:1.5
+nginx_ingress_controller_image_name: "{{ quay_image_repo }}/kubernetes-ingress-controller/nginx-ingress-controller:0.25.0"
+defaultbackend_image: "{{ k8s_image_repo }}/google_containers/defaultbackend-amd64:1.5"
+
+# metallb
+# metallb_protocol: bgp
+metallb_protocol: layer2
+metallb_version: v0.8.1
+# 选一段与node节点相同网段的地址
+metallb_vip_pool: "10.177.140.241-10.177.140.253"
+
+# dashboard
+dashboard_ingress_secret_name: kubernetes-dashboard-ingress-certs
+dashboard_domain_name: dashboard.test.com
+dashboard_image_name: "{{ k8s_image_repo }}/google_containers/kubernetes-dashboard-amd64:v1.10.1"
+heapster_image_name: "{{ k8s_image_repo }}/google_containers/heapster-amd64:v1.5.4"
+
+# metric server
+metrics_image_name: "{{ k8s_image_repo }}/google_containers/metrics-server-amd64:v0.3.3"
+
+# prometheus monitor
+monitoring_lb_address: ""
+grafana_domain_name: grafana.test.com
+prometheus_domain_name: prometheus.test.com
+monitoring_grafana_user: "admin"
+monitoring_grafana_password: "p@ssw0rd"
+
+# efk_logging
+kibana_lb_address: ""
+kibana_domain_name: "kibana.local.com"
+es_image_name: "{{ k8s_image_repo }}/fluentd-elasticsearch/elasticsearch:v6.6.1"
+fluentd_image_name: "{{ k8s_image_repo }}/google-containers/fluentd-elasticsearch:v2.4.0"
+kibana_image_name: "docker.elastic.co/kibana/kibana-oss:6.6.1"
+
+###############
+# Docker opts #
+###############
+
+# 定义国内加速镜像地址
+proxy_registries:
+  - "https://dockerhub.azk8s.cn"
+  - "https://docker.mirrors.ustc.edu.cn"
+  - "https://8trm4p9x.mirror.aliyuncs.com"
+  - "https://registry.docker-cn.com"
+  - "http://010a79c4.m.daocloud.io"
+  - "http://hub-mirror.c.163.com"
+# A list of the insecure registry you might need to define
+insecure_registries:
+  - "{{ local_image_repo }}"
+  - "{{ vip_address.split('.')[:-1] | join('.') }}.0/24"
+# docker日志相关
+level: "warn"
+maxsize: "10m"
+maxfile: 3
+# docker容器存储目录
+data: "/var/lib/docker"
+# 开启 docker daemon iptables 规则，如果要使用 docker 创建容器设置为 true
+enable_dockerd_iptables: true
+# 开启 Restful API
+enable_remote_api: false
+# 开启 docker proxy
+docker_enable_proxy: false
+
+# Add http and https proxy
+proxy_env:
+  # http://:<usr>@<passwd>:<ip>:<port>
+  http_proxy: "http://currycan:shachao123321@dc6.ansandy.com:18080"
+  # https://<usr>:<passwd>@<ip>:<port>
+  https_proxy: "http://currycan:shachao123321@dc6.ansandy.com:18080"
+  # no proxy
+  no_proxy: "localhost,127.0.0.1,127.0.0.0/8,{% for reg in proxy_registries -%}{{ reg }}{%- if not loop.last -%},{%- endif -%}{%- endfor -%}, {% for reg in insecure_registries -%}{{ reg }}{%- if not loop.last -%},{%- endif -%}{%- endfor -%}"
+
+# PVC 存储服务地址
+storage_server_address: "10.177.140.8"
+
+#############
+# Msic opts #
+#############
+
+# Download pkg from custom URL
+repos_offline: false
+repos_port: 4040
+repos_offline_url: "http://172.16.35.9:{{ repos_port }}"

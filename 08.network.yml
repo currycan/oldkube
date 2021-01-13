@@ -1,0 +1,9 @@
+# to set up network_plugin
+- hosts:
+    - kube-cluster
+  become: true
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: k8s-network }
+    - { role: k8s-addon, addon: "{{ addons.kubedns }}" }

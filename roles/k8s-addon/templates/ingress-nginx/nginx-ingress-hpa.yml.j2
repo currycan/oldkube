@@ -1,0 +1,22 @@
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app: nginx-ingress
+  name: nginx-ingress-controller
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx-ingress-controller
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 50
+    - type: Resource
+      resource:
+        name: memory
+        targetAverageUtilization: 60

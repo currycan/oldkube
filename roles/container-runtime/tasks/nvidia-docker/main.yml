@@ -1,0 +1,34 @@
+---
+
+- name: 创建 nvidia runtime 配置文件目录
+  file: path="{{ nvidia_runtime_config_dir }}" state=directory
+
+- name: 配置 nvidia docker and runtime 配置文件
+  template:
+    src: "nvidia-docker/{{ item.file }}.j2"
+    dest: "{{ item.dir }}/{{ item.file }}"
+    owner: root
+    group: root
+    mode: 0644
+  with_items:
+    - { file: "config.toml", dir: "{{ nvidia_runtime_config_dir }}" }
+    - { file: "libnvidia.conf", dir: "{{ ld_config_dir }}" }
+  register: copy_nvidia_config_files
+
+- name: 创建 libnvidia lib 目录
+  file: path="{{ libnvidia_lib_dir }}" state=directory
+
+- name: 配置 libnvidia header 文件
+  copy:
+    src: "{{ package.libnvidia_container.dir }}/usr/local/include/nvc.h"
+    dest: "{{ libnvidia_header_file }}"
+    remote_src: yes
+
+- name: 配置 libnvidia lib dir to system
+  shell: |
+    cp -rp {{ package.libnvidia_container.dir }}/usr/local/lib/* {{ libnvidia_lib_dir }}
+  register: copy_libnvidia_lib
+
+- name: 配置 dynamic linker for libnvidia
+  when: copy_libnvidia_lib
+  command: "ldconfig -v"

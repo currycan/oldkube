@@ -1,0 +1,42 @@
+[deploy]
+wxl-k8s-ma01 iface=ens192
+
+[chrony]
+wxl-k8s-ma01 iface=ens192
+
+[etcds]
+wxl-k8s-ma01 iface=ens192
+wxl-k8s-ma02 iface=ens192
+wxl-k8s-ma03 iface=ens192
+
+[masters]
+wxl-k8s-ma01 iface=ens192 lb_role=master
+wxl-k8s-ma02 iface=ens192 lb_role=backup
+wxl-k8s-ma03 iface=ens192 lb_role=backup
+
+[nodes]
+wxl-k8s-node01 iface=ens192
+wxl-k8s-node02 iface=ens192
+wxl-k8s-node03 iface=ens192
+wxl-k8s-node04 iface=ens192
+wxl-k8s-node05 iface=ens192
+wxl-k8s-node06 iface=ens192
+wxl-k8s-node07 iface=ens192
+wxl-k8s-node08 iface=ens192
+
+[kube-cluster:children]
+masters
+nodes
+add-nodes
+
+[add-nodes]
+wxl-k8s-node09 iface=ens192
+wxl-k8s-node10 iface=ens192
+wxl-k8s-node11 iface=ens192
+wxl-k8s-node12 iface=ens192
+
+[delete-nodes]
+wxl-k8s-node09 iface=ens192
+wxl-k8s-node10 iface=ens192
+wxl-k8s-node11 iface=ens192
+wxl-k8s-node12 iface=ens192

@@ -1,0 +1,9 @@
+# 升级内核
+- hosts:
+  # - kube-cluster
+  - add-nodes
+  become: true
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: prepare/kernel }

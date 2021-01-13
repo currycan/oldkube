@@ -1,0 +1,10 @@
+---
+
+dependencies:
+  - { role: download/package, when: node_role == 'master', pkg: "{{ package.apiserver }}" }
+  - { role: download/package, when: node_role == 'master', pkg: "{{ package.scheduler }}" }
+  - { role: download/package, when: node_role == 'master', pkg: "{{ package.controller_manager }}" }
+  - { role: download/package, pkg: "{{ package.kubelet }}" }
+  - { role: download/package, pkg: "{{ package.kubeproxy }}" }
+  - { role: download/package, pkg: "{{ package.cni }}" }
+  - { role: download/package, pkg: "{{ package.kubekrew }}" }

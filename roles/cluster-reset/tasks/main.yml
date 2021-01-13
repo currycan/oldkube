@@ -1,0 +1,25 @@
+---
+
+- name: 所需安装包信息
+  include_vars:
+    file: ../download/package/defaults/main.yml
+
+- name: Reset ha
+  when: reset_ha|default(false)
+  include_tasks: reset-ha.yml
+
+- name: Reset flannel
+  when: reset_flannel|default(false)
+  include_tasks: reset-flannel.yml
+
+- name: Reset Kubernetes cluster
+  when: reset_k8s|default(false)
+  include_tasks: reset-k8s.yml
+
+- name: Reset etcd cluster
+  when: reset_etcd|default(false)
+  include_tasks: reset-etcd.yml
+
+- name: Reset kernel module
+  when: reset_kernel_module|default(false)
+  include_tasks: reset-kernel-module.yml

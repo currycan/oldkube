@@ -1,0 +1,245 @@
+---
+
+base:
+  kubectl:
+    url: "https://storage.googleapis.com"
+    version: "{{ kube_version }}"
+  apiserver:
+    url: "https://storage.googleapis.com"
+    version: "{{ kube_version }}"
+  scheduler:
+    url: "https://storage.googleapis.com"
+    version: "{{ kube_version }}"
+  controller_manager:
+    url: "https://storage.googleapis.com"
+    version: "{{ kube_version }}"
+  kubelet:
+    url: "https://storage.googleapis.com"
+    version: "{{ kube_version }}"
+  kubeproxy:
+    url: "https://storage.googleapis.com"
+    version: "{{ kube_version }}"
+  kubekrew:
+    url: "https://storage.googleapis.com"
+    version: "{{ kubekrew_version }}"
+  etcd:
+    url: "https://github.com"
+    version: "{{ etcd_version }}"
+  flannel:
+    url: "https://github.com"
+    version: "{{ flanneld_version }}"
+  docker:
+    url: "https://download.docker.com"
+    version: "{{ docker_version }}"
+  nvidia_docker:
+    url: "https://github.com"
+    version: 2.0.3
+  libnvidia_container:
+    url: "https://github.com"
+    version: 1.0.0-rc.2
+  nvidia_container_runtime:
+    url: "https://github.com"
+    version: 1.4.0.1
+  containerd:
+    url: "https://storage.googleapis.com"
+    version: "{{ containerd_version }}"
+  cni:
+    url: "https://github.com"
+    version: "{{ cni_version }}"
+  helm:
+    url: "https://kubernetes-helm.storage.googleapis.com"
+    version: "{{ helm_version }}"
+  cfssl:
+    url: "https://pkg.cfssl.org"
+    version: "{{ cfssl_version }}"
+  cfssljson:
+    url: "https://pkg.cfssl.org"
+    version: "{{ cfssl_version }}"
+
+package:
+  kubectl:
+    name: kubectl
+    dir: /opt/kubernetes
+    url: "{{ base.kubectl.url }}/kubernetes-release/release/v{{ base.kubectl.version }}/bin/linux/amd64"
+    symlinks:
+      - kubectl
+    file: kubectl
+  apiserver:
+    name: apiserver
+    dir: /opt/kubernetes
+    url: "{{ base.apiserver.url }}/kubernetes-release/release/v{{ base.apiserver.version }}/bin/linux/amd64"
+    symlinks:
+      - kube-apiserver
+    file: kube-apiserver
+  scheduler:
+    name: scheduler
+    dir: /opt/kubernetes
+    url: "{{ base.scheduler.url }}/kubernetes-release/release/v{{ base.scheduler.version }}/bin/linux/amd64"
+    symlinks:
+      - kube-scheduler
+    file: kube-scheduler
+  controller_manager:
+    name: controller_manager
+    dir: /opt/kubernetes
+    url: "{{ base.controller_manager.url }}/kubernetes-release/release/v{{ base.controller_manager.version }}/bin/linux/amd64"
+    symlinks:
+      - kube-controller-manager
+    file: kube-controller-manager
+  kubelet:
+    name: kubelet
+    dir: /opt/kubernetes
+    url: "{{ base.kubelet.url }}/kubernetes-release/release/v{{ base.kubelet.version }}/bin/linux/amd64"
+    symlinks:
+      - kubelet
+    file: kubelet
+  kubeproxy:
+    name: kubeproxy
+    dir: /opt/kubernetes
+    url: "{{ base.kubeproxy.url }}/kubernetes-release/release/v{{ base.kubeproxy.version }}/bin/linux/amd64"
+    symlinks:
+      - kube-proxy
+    file: kube-proxy
+
+  kubekrew:
+    name: kubekrew
+    dir: /opt/kubectl-krew
+    url: "{{ base.kubekrew.url }}/krew/v{{ base.kubekrew.version }}"
+    unarchive:
+      extra_opt: "['--strip-components=1']"
+    symlinks:
+      - krew-linux_amd64
+    file: "krew.tar.gz"
+
+  etcd:
+    name: etcd
+    dir: /opt/etcd
+    url: "{{ base.etcd.url }}/coreos/etcd/releases/download/v{{ base.etcd.version }}"
+    unarchive:
+      extra_opt: "['--strip-components=1']"
+    symlinks:
+      - etcd
+      - etcdctl
+    file: "etcd-v{{ base.etcd.version }}-linux-amd64.tar.gz"
+  flannel:
+    name: flannel
+    dir: /opt/flannel
+    url: "{{ base.flannel.url }}/coreos/flannel/releases/download/v{{ base.flannel.version }}"
+    unarchive:
+      extra_opt: "['--strip-components=1']"
+    symlinks:
+      - flanneld
+    file: "flannel-v{{ base.flannel.version }}-linux-amd64.tar.gz"
+  nvidia_docker:
+    name: nvidia-docker
+    dir: /opt/nvidia-docker
+    url: "{{ base.nvidia_docker.url }}/kairen/k8s-manual-files/releases/download/nvidia"
+    unarchive:
+      extra_opt: "['--strip-components=1']"
+    symlinks:
+      - usr/bin/nvidia-docker
+    file: "nvidia-docker-v{{ base.nvidia_docker.version }}_amd64.tar.gz"
+  libnvidia_container:
+    name: libnvidia-container
+    dir: /opt/libnvidia-container
+    url: "{{ base.libnvidia_container.url }}/kairen/k8s-manual-files/releases/download/nvidia"
+    unarchive:
+      extra_opt: "['--strip-components=1']"
+    symlinks:
+      - usr/local/bin/nvidia-container-cli
+    file: "libnvidia-container-{{ base.libnvidia_container.version }}_amd64.tar.xz"
+  nvidia_container_runtime:
+    name: nvidia-container-runtime
+    dir: /opt/nvidia-container-runtime
+    url: "{{ base.nvidia_container_runtime.url }}/kairen/k8s-manual-files/releases/download/nvidia"
+    unarchive:
+      extra_opt: "['--strip-components=1']"
+    symlinks:
+      - usr/bin/nvidia-container-runtime
+      - usr/bin/nvidia-container-runtime-hook
+    file: "nvidia-container-runtime-v{{ base.nvidia_container_runtime.version }}_amd64.tar.gz"
+
+  containerd:
+    name: containerd
+    dir: /opt/containerd
+    url: "https://github.com/containerd/containerd/releases/download/v{{ containerd_version }}"
+    unarchive:
+      extra_opt: "['--strip-components=1']"
+    symlinks:
+      - containerd-shim-runc-v1
+      - containerd-shim-runc-v2
+    file: "containerd-{{ containerd_version }}-linux-amd64.tar.gz"
+
+  crictl:
+    name: crictl
+    dir: /opt/containerd
+    url: "https://github.com/kubernetes-sigs/cri-tools/releases/download/v{{ cri_tools_version }}"
+    unarchive:
+      extra_opt: "['--strip-components=0']"
+    symlinks:
+      - crictl
+    file: "crictl-v{{ cri_tools_version }}-linux-amd64.tar.gz"
+
+  docker:
+    name: docker
+    dir: /opt/docker
+    url: "https://download.docker.com/linux/static/stable/x86_64"
+    unarchive:
+      extra_opt: "['--strip-components=1']"
+    symlinks:
+      - docker
+      - dockerd
+      - docker-init
+      - docker-proxy
+      - containerd
+      - containerd-shim
+      - runc
+      - ctr
+    file: "docker-{{ docker_version }}.tgz"
+
+  cni:
+    name: cni
+    dir: /opt/cni/bin
+    url: "{{ base.cni.url }}/containernetworking/plugins/releases/download/v{{ base.cni.version }}"
+    unarchive:
+      extra_opt: "['--strip-components=0']"
+    symlinks:
+      - bandwidth
+      - bridge
+      - dhcp
+      - firewall
+      - flannel
+      - host-device
+      - host-local
+      - ipvlan
+      - loopback
+      - macvlan
+      - portmap
+      - ptp
+      - sbr
+      - static
+      - tuning
+      - vlan
+    file: "cni-plugins-linux-amd64-v{{ base.cni.version }}.tgz"
+  helm:
+    name: helm
+    dir: /opt/helm
+    url: "{{ base.helm.url }}"
+    unarchive:
+      extra_opt: "['--strip-components=1']"
+    symlinks:
+      - helm
+    file: "helm-v{{ base.helm.version }}-linux-amd64.tar.gz"
+  cfssl:
+    name: cfssl
+    dir: /opt/cfssl
+    url: "{{ base.cfssl.url }}/R{{ base.cfssl.version }}"
+    symlinks:
+      - cfssl
+    file: cfssl_linux-amd64
+  cfssljson:
+    name: cfssljson
+    dir: /opt/cfssl
+    url: "{{ base.cfssljson.url }}/R{{ base.cfssljson.version }}"
+    symlinks:
+      - cfssljson
+    file: cfssljson_linux-amd64

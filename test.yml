@@ -1,0 +1,44 @@
+- hosts: "{{ groups['masters'][0] }}"
+# - hosts:
+#   - kube_cluster
+# - hosts: "{{ groups['masters'] }}"
+# - hosts: kube_cluster
+# - hosts: (groups['nodes'] + groups['add_nodes'])
+# - hosts: etcds
+# - hosts: "{{ groups['deploy'][0] }}"
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+  tasks:
+  - name: 导入变量
+    include_vars:
+      file: ./roles/cert/defaults/main.yml
+  - name: 渲染 kubernetes 所有证书签名请求文件
+    debug: msg="{{ pki_dir }}/{{ item.bare }}.pem"
+    # stat:
+    #   path: "{{ pki_dir }}/{{ item.bare }}.pem"
+    with_items:
+      # kubernetes general CA
+      - { file: ca-csr.json, name: kubernetes-ca , org: "kubernetes", bare: ca }
+      # kubectl admin client
+      - { file: admin-csr.json, name: kubernetes-admin, org: "system:masters", bare: admin }
+      # kube-apiserver server
+      - { file: apiserver-csr.json, name: kube-apiserver, hosts: "{{ apiserver_hosts }}", org: "kubernetes", bare: apiserver }
+      # kube-apiserver-kubelet-client client
+      - { file: kube-apiserver-kubelet-client-csr.json, name: kube-apiserver-kubelet-client, org: "system:masters", bare: apiserver-kubelet-client }
+      # kube-controller-manager
+      - { file: manager-csr.json, name: "system:kube-controller-manager", hosts: "{{ base_hosts }}", org: "system:kube-controller-manager", bare: controller-manager }
+      # kube-scheduler
+      - { file: scheduler-csr.json, name: "system:kube-scheduler", hosts: "{{ base_hosts }}", org: "system:kube-scheduler", bare: scheduler }
+      # kubernetes-front ca
+      - { file: front-proxy-ca-csr.json, name: kubernetes-front-proxy-ca, org: "kubernetes", bare: front-proxy-ca }
+      # kubernetes-front client
+      - { file: front-proxy-client-csr.json, name: front-proxy-client, org: "kubernetes", bare: front-proxy-client }
+      # kubernetes-front client
+      - { file: kube-proxy-csr.json, name: "system:kube-proxy", org: "system:kube-proxy", bare: kube-proxy }
+      # flanneld
+      - { file: flanneld-csr.json, name: flanneld, org: "system:flanneld", bare: flanneld }
+      # helm
+      - { file: helm-csr.json, name: helm, org: "system:helm", bare: helm }
+      # tiller
+      - { file: tiller-csr.json, name: tiller, org: "system:tiller", bare: tiller }

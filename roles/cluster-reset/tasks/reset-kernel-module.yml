@@ -1,0 +1,42 @@
+---
+
+- name: 删除加载的内核模块
+  modprobe: name={{ item }} state=absent
+  with_items:
+    - br_netfilter
+    - ip_vs
+    - ip_vs_rr
+    - ip_vs_wrr
+    - ip_vs_sh
+    - ip_vs_lc
+    - ip_vs_wlc
+    - ip_vs_lblc
+    - ip_vs_lblcr
+    - ip_vs_dh
+    - ip_vs_fo
+    - ip_vs_nq
+    - ip_vs_sed
+    - ip_vs_ftp
+  ignore_errors: true
+
+- name: 停用systemd自动加载模块服务
+  systemd: name=systemd-modules-load state=stopped enabled=no
+  ignore_errors: True
+
+- name: 删除内核模块开机加载配置
+  file: path=/etc/modules-load.d/10-k8s-modules.conf state=absent
+  ignore_errors: True
+
+- name: 转换内核版本为浮点数
+  set_fact:
+     KERNEL_VER: "{{ ansible_kernel.split('-')[0].split('.')[0]|int + ansible_kernel.split('-')[0].split('.')[1]|int/100 }}"
+
+- name: 删除加载的内核模块 nf_conntrack
+  modprobe: name=nf_conntrack state=absent
+  when: "KERNEL_VER|float >= 4.19"
+  ignore_errors: true
+
+- name: 删除加载的内核模块 nf_conntrack_ipv4
+  modprobe: name=nf_conntrack_ipv4 state=absent
+  when: "KERNEL_VER|float < 4.19"
+  ignore_errors: true

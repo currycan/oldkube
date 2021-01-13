@@ -1,0 +1,9 @@
+# to set up 'master' nodes
+- hosts:
+    - masters
+  become: true
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    - { role: ha, when: "groups['masters'] | length > 1" }
+   # - { role: k8s-setup, node_role: 'master', tags: master-setup }

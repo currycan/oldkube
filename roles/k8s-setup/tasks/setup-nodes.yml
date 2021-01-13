@@ -1,0 +1,38 @@
+---
+
+- name: 创建 kubelet cni 和 kube-proxy 组件所需目录
+  file: path={{ item }} state=directory
+  with_items:
+  - "{{ kubelet_dir }}"
+  - "{{ kubelet_plugins_dir }}"
+  - "{{ kubele_config_dir }}"
+  - "{{ cni_etc_dir }}"
+  - "{{ kubeproxy_dir }}"
+  - "{{ kubeproxy_config_dir }}"
+
+- name: 配置 kubelet kube-proxy 和 cni config 文件
+  template: src="{{ item.src }}" dest="{{ item.dest }}"
+  with_items:
+    - { src: "cni-plugin/cni-default.conf.j2", dest: "{{ cni_etc_config }}" }
+
+- name: 配置 kubelet 和 kube-proxy systemd service 文件
+  template:
+    src="{{ item }}"
+    dest={{ systemd_service_dir }}/{{ item.split('.')[:-1]|join('.') }}
+    owner=root
+    group=root
+    mode=0644
+  with_items:
+  - kubelet.service.j2
+  - kube-proxy.service.j2
+
+- name: 启动 kubernetes node 节点kubelet和kubeproxy组件，并设置开机启动
+  systemd:
+    name={{ item }}
+    daemon_reload=yes
+    state=restarted
+    enabled=yes
+  with_items:
+    - kubelet
+    - kube-proxy
+

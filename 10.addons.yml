@@ -1,0 +1,24 @@
+# to set up kubernetes cluster addons
+- hosts: "{{ groups['masters'][0] }}"
+  become: true
+  gather_facts: false
+  roles:
+    - { role: cluster-default }
+    - { role: cluster-path }
+    # - { role: k8s-addon, tags: traefik,       when: enable_ingress,       addon: "{{ addons.traefik }}" }
+    - { role: k8s-addon, tags: ingress-nginx, when: enable_ingress,       addon: "{{ addons.ingress_nginx }}" }
+    - { role: k8s-addon, tags: metallb,       when: enable_metallb,       addon: "{{ addons.metallb }}" }
+    - { role: k8s-addon, tags: dashboard,     when: enable_dashboard,     addon: "{{ addons.dashboard }}" }
+    - { role: k8s-addon, tags: metric-server, when: enable_metric_server, addon: "{{ addons.metric_server }}" }
+    - { role: k8s-addon, tags: monitoring,    when: enable_monitoring,    addon: "{{ addons.monitoring }}" }
+    - { role: k8s-addon, tags: logging,       when: enable_logging,       addon: "{{ addons.logging }}" }
+  tasks:
+  - name: 创建核心组件的 endpoint
+    shell: >
+      {{ bin_dir }}/kubectl apply -f {{ manifest_dir }}/{{ item }}
+    with_items:
+      - core-server-ep.yml
+      - kubelet-ep.yml
+    run_once: true
+    when: enable_monitoring
+    delegate_to: "{{ groups['masters'][0] }}"

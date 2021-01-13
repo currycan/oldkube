@@ -1,0 +1,10 @@
+helm_namespace: kube-system
+helm_cert_cn: helm
+tiller_sa: tiller
+tiller_cert_cn: tiller
+# 推荐使用微软azure的charts镜像,阿里云的charts不知道为什么更新很不及时
+repo_url: http://mirror.azure.cn/kubernetes/charts/
+# repo_url: https://kubernetes.oss-cn-hangzhou.aliyuncs.com/charts
+# repo_url: https://kubernetes-charts.storage.googleapis.com
+# helm repo remove stable
+# helm repo add stable http://mirror.azure.cn/kubernetes/charts/

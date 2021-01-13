@@ -1,0 +1,31 @@
+---
+
+- name: 创建 kubernetes cluster 证书存放目录
+  file: path={{ pki_dir }} state=directory
+  tags: 'add-nodes'
+
+- name: 检验 kubernetes CA 证书配置文件是否存在
+  stat: path={{ ca_config }}
+  register: check_ca_config
+
+- name: 生成 kubernetes CA 配置文件
+  when: not check_ca_config.stat.exists
+  template: src=ca-config.json.j2 dest="{{ ca_config }}"
+  register: gen_ca_config
+
+- include_tasks: create-k8s-certs.yml
+
+- name: 从 deploy 节点分发 kubernetes CA 证书到各节点
+  when: inventory_hostname != groups['masters'][0]
+  copy: src="{{ item }}" dest="{{ item }}"
+  with_items:
+    - "{{ ca }}"
+    - "{{ ca_key }}"
+  tags: 'add-nodes'
+
+- include_tasks: create-k8s-kubelet-certs.yml
+  tags: 'add-nodes'
+
+- include_tasks: create-etcd-certs.yml
+
+- include_tasks: purge-files.yml
